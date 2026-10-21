@@ -27,9 +27,12 @@
 
     <!-- MMR & Rang en session -->
     <div class="rank-box" id="rankBox">
-      <div class="rank-text">
-        <span class="rank-title" id="sideRankName">Diamond I</span>
-        <span class="rank-sub" id="sideRankDiv">Division 2</span>
+      <div class="rank-left">
+        <div id="sideRankImg"></div>
+        <div class="rank-text">
+          <span class="rank-title" id="sideRankName">Platinum III</span>
+          <span class="rank-sub" id="sideRankDiv">Division 3</span>
+        </div>
       </div>
       <div class="mmr-badge">
         <span id="sideMmr">855.0</span>
@@ -161,20 +164,35 @@
     </section>
 
     <section id="sec-player">
-      <h2>Joueur</h2>
+      <h2>Joueur & Compte</h2>
       <p id="detected"></p>
 
-      <h3>Plateforme du joueur</h3>
+      <h3>Plateforme</h3>
       <div class="segmented" id="playerPlatform">
         <button type="button" data-value="epic">Epic Games</button>
         <button type="button" data-value="steam">Steam</button>
         <button type="button" data-value="">Détection auto</button>
       </div>
 
-      <label class="stack" style="margin-top: 12px;">Pseudo en jeu
-        <input type="text" id="customName" placeholder="Cochez d'abord Epic ou Steam ci-dessus" spellcheck="false" disabled>
-      </label>
-      <p class="hint">Cochez Epic ou Steam pour débloquer la saisie de votre pseudo en jeu. En mode « Détection auto », le joueur est reconnu automatiquement dès votre première partie.</p>
+      <div class="inline" style="margin-top: 14px; align-items: flex-end;">
+        <label class="stack" style="flex: 1;">Pseudo en jeu
+          <input type="text" id="customName" placeholder="Cochez d'abord Epic ou Steam ci-dessus" spellcheck="false" disabled>
+        </label>
+        <label class="stack" style="width: 140px;">MMR actuel
+          <input type="number" id="playerMmrInput" step="1" placeholder="855">
+        </label>
+        <button type="button" class="primary" id="savePlayerMmrBtn">Appliquer</button>
+      </div>
+
+      <!-- Aperçu immédiat du profil dès la saisie du pseudo -->
+      <div class="player-profile-card" id="playerProfileCard">
+        <div class="pp-icon" id="ppRankImg"></div>
+        <div class="pp-info">
+          <div class="pp-pseudo" id="ppPseudo">Votre Joueur</div>
+          <div class="pp-rank-title" id="ppRankTitle">Platinum III Div. 3</div>
+          <div class="pp-mmr-row">MMR : <b id="ppMmrVal">855.0</b> <span class="pp-badge" id="ppPlatBadge">Epic Games</span></div>
+        </div>
+      </div>
     </section>
 
     <section id="sec-obs">

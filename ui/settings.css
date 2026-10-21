@@ -415,6 +415,14 @@ input[type="text"] { width: 100%; }
   align-items: center;
   justify-content: space-between;
 }
+.rank-box .rank-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rank-box .rank-left img {
+  filter: drop-shadow(0 0 6px rgba(54, 169, 255, 0.5));
+}
 .rank-box .rank-text {
   display: flex;
   flex-direction: column;
@@ -443,4 +451,53 @@ input[type="text"] { width: 100%; }
   font-size: 12px;
   font-weight: 700;
   color: var(--good);
+}
+
+/* Carte de profil joueur en direct */
+.player-profile-card {
+  margin-top: 14px;
+  background: linear-gradient(135deg, rgba(20, 40, 70, 0.7) 0%, rgba(12, 24, 44, 0.8) 100%);
+  border: 1px solid rgba(54, 169, 255, 0.35);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.player-profile-card .pp-icon img {
+  filter: drop-shadow(0 0 8px rgba(54, 169, 255, 0.6));
+}
+.player-profile-card .pp-info {
+  display: flex;
+  flex-direction: column;
+}
+.player-profile-card .pp-pseudo {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+}
+.player-profile-card .pp-rank-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--blue);
+}
+.player-profile-card .pp-mmr-row {
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.player-profile-card .pp-mmr-row b {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.player-profile-card .pp-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  background: rgba(54, 169, 255, 0.2);
+  color: var(--blue);
+  padding: 2px 6px;
+  border-radius: 3px;
 }

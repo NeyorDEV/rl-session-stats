@@ -19,6 +19,23 @@ const FIELDS = [
   ['deaths', 'Morts'],
 ];
 
+const RANK_FILES = {
+  0: 'unranked.png',
+  1: 'bronze-1.png', 2: 'bronze-2.png', 3: 'bronze-3.png',
+  4: 'silver-1.png', 5: 'silver-2.png', 6: 'silver-3.png',
+  7: 'gold-1.png', 8: 'gold-2.png', 9: 'gold-3.png',
+  10: 'platinum-1.png', 11: 'platinum-2.png', 12: 'platinum-3.png',
+  13: 'diamond-1.png', 14: 'diamond-2.png', 15: 'diamond-3.png',
+  16: 'champion-1.png', 17: 'champion-2.png', 18: 'champion-3.png',
+  19: 'grand-champion-1.png', 20: 'grand-champion-2.png', 21: 'grand-champion-3.png',
+  22: 'supersonic-legend.png',
+};
+
+function getRankImg(tier, size = 36) {
+  const file = RANK_FILES[Number(tier)] || 'unranked.png';
+  return `<img src="ranks/${file}" alt="Rank" width="${size}" height="${size}" style="object-fit: contain;">`;
+}
+
 const $ = (id) => document.getElementById(id);
 let S = null;          // état complet reçu du processus principal
 let api = null;        // état de la Stats API (fichiers .ini)
@@ -32,39 +49,39 @@ const fmtStreak = (n) => (n > 0 ? `+${n}` : String(n));
 
 function calculateRankFrontend(mmr) {
   mmr = Number(mmr) || 0;
-  if (mmr <= 0) return { name: 'Unranked', div: 1 };
+  if (mmr <= 0) return { name: 'Unranked', div: 1, tier: 0 };
   const brackets = [
-    ['Bronze I', 0, 175],
-    ['Bronze II', 175, 235],
-    ['Bronze III', 235, 295],
-    ['Silver I', 295, 355],
-    ['Silver II', 355, 415],
-    ['Silver III', 415, 475],
-    ['Gold I', 475, 535],
-    ['Gold II', 535, 595],
-    ['Gold III', 595, 655],
-    ['Platinum I', 655, 735],
-    ['Platinum II', 735, 815],
-    ['Platinum III', 815, 895],
-    ['Diamond I', 895, 995],
-    ['Diamond II', 995, 1095],
-    ['Diamond III', 1095, 1195],
-    ['Champion I', 1195, 1315],
-    ['Champion II', 1315, 1435],
-    ['Champion III', 1435, 1555],
-    ['Grand Champion I', 1555, 1715],
-    ['Grand Champion II', 1715, 1875],
-    ['Grand Champion III', 1875, 2035],
+    ['Bronze I', 0, 175, 1],
+    ['Bronze II', 175, 235, 2],
+    ['Bronze III', 235, 295, 3],
+    ['Silver I', 295, 355, 4],
+    ['Silver II', 355, 415, 5],
+    ['Silver III', 415, 475, 6],
+    ['Gold I', 475, 535, 7],
+    ['Gold II', 535, 595, 8],
+    ['Gold III', 595, 655, 9],
+    ['Platinum I', 655, 735, 10],
+    ['Platinum II', 735, 815, 11],
+    ['Platinum III', 815, 895, 12],
+    ['Diamond I', 895, 995, 13],
+    ['Diamond II', 995, 1095, 14],
+    ['Diamond III', 1095, 1195, 15],
+    ['Champion I', 1195, 1315, 16],
+    ['Champion II', 1315, 1435, 17],
+    ['Champion III', 1435, 1555, 18],
+    ['Grand Champion I', 1555, 1715, 19],
+    ['Grand Champion II', 1715, 1875, 20],
+    ['Grand Champion III', 1875, 2035, 21],
   ];
-  if (mmr >= 2035) return { name: 'Supersonic Legend', div: 1 };
-  for (const [name, min, max] of brackets) {
+  if (mmr >= 2035) return { name: 'Supersonic Legend', div: 1, tier: 22 };
+  for (const [name, min, max, tier] of brackets) {
     if (mmr < max) {
       const width = (max - min) / 4;
       const div = 1 + Math.min(3, Math.max(0, Math.floor((mmr - min) / width)));
-      return { name, div };
+      return { name, div, tier };
     }
   }
-  return { name: 'Supersonic Legend', div: 1 };
+  return { name: 'Supersonic Legend', div: 1, tier: 22 };
 }
 
 let savedTimer;
@@ -101,6 +118,7 @@ function renderSession() {
     : S.connected ? 'Connecté à Rocket League' : 'En attente de Rocket League';
 
   // Bloc Rang & MMR
+  if ($('sideRankImg')) $('sideRankImg').innerHTML = getRankImg(s.rankTier, 36);
   $('sideRankName').textContent = s.rankName || 'Unranked';
   $('sideRankDiv').textContent = `Division ${s.division || 1}`;
   $('sideMmr').textContent = Number(s.currentMmr || 0).toFixed(1);
@@ -214,6 +232,14 @@ function renderForm() {
   $('customName').disabled = !hasPlatform;
   $('customName').placeholder = hasPlatform ? 'Entrez votre pseudo exact...' : 'Cochez d\'abord Epic ou Steam ci-dessus';
   setValue($('customName'), pl.customName || '');
+  setValue($('playerMmrInput'), Number(S.session.currentMmr || 855).toFixed(0));
+
+  // Mise à jour de la carte de profil joueur en direct
+  if ($('ppRankImg')) $('ppRankImg').innerHTML = getRankImg(S.session.rankTier, 48);
+  if ($('ppPseudo')) $('ppPseudo').textContent = pl.customName || 'Joueur Rocket League';
+  if ($('ppRankTitle')) $('ppRankTitle').textContent = `${S.session.rankName || 'Unranked'} Div. ${S.session.division || 1}`;
+  if ($('ppMmrVal')) $('ppMmrVal').textContent = Number(S.session.currentMmr || 0).toFixed(1);
+  if ($('ppPlatBadge')) $('ppPlatBadge').textContent = pl.platform ? (pl.platform === 'epic' ? 'Epic Games' : 'Steam') : 'Détection auto';
 
   $('obsUrl').textContent = S.obsUrl;
   setValue($('serverPort'), S.settings.server.port);
@@ -331,6 +357,30 @@ function bind() {
       renderForm();
       flashSaved('MMR mis à jour');
     }
+  });
+
+  $('savePlayerMmrBtn').addEventListener('click', async () => {
+    const mmr = Number($('playerMmrInput').value);
+    if (!isNaN(mmr) && mmr >= 0) {
+      S = await app.setMmr(mmr);
+      renderSession();
+      renderForm();
+      flashSaved('MMR & Profil mis à jour');
+    }
+  });
+
+  $('playerMmrInput').addEventListener('input', (e) => {
+    const val = Number(e.target.value);
+    if (!isNaN(val) && val >= 0) {
+      const rk = calculateRankFrontend(val);
+      if ($('ppRankTitle')) $('ppRankTitle').textContent = `${rk.name} Div. ${rk.div}`;
+      if ($('ppMmrVal')) $('ppMmrVal').textContent = val.toFixed(1);
+      if ($('ppRankImg')) $('ppRankImg').innerHTML = getRankImg(rk.tier, 48);
+    }
+  });
+
+  $('customName').addEventListener('input', (e) => {
+    if ($('ppPseudo')) $('ppPseudo').textContent = e.target.value.trim() || 'Joueur Rocket League';
   });
 
   $('mmrDelta').addEventListener('change', (e) => {

@@ -26,14 +26,6 @@
     display: inline-block;
   }
 
-  /* --- Styles communs & animation --- */
-  .pulse { animation: pulseAnim .6s ease-out; }
-  @keyframes pulseAnim {
-    0% { transform: scale(1); }
-    35% { transform: scale(1.15); }
-    100% { transform: scale(1); }
-  }
-
   /* =========================================================================
      THÈME 1 : ROCKETSTATS (Classic Card)
      ========================================================================= */
@@ -45,7 +37,7 @@
     padding: 10px 16px;
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 16px;
     transform-origin: 0 0;
     position: relative;
     overflow: hidden;
@@ -68,7 +60,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    filter: drop-shadow(0 0 8px rgba(45, 176, 255, 0.5));
+  }
+  .rs-rank-icon img {
+    filter: drop-shadow(0 0 8px rgba(45, 176, 255, 0.6));
+    object-fit: contain;
   }
   .rs-rank-info {
     display: flex;
@@ -99,7 +94,7 @@
     flex-direction: column;
     padding-right: 14px;
     border-right: 1px solid rgba(255, 255, 255, 0.12);
-    min-width: 90px;
+    min-width: 80px;
   }
   .rs-mmr-label {
     font-size: 11px;
@@ -113,7 +108,7 @@
     gap: 6px;
   }
   .rs-mmr-value {
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 900;
     line-height: 1;
     color: #ffffff;
@@ -155,7 +150,7 @@
   .rs-stat-box.streak .rs-val { color: var(--gold); }
 
   /* =========================================================================
-     THÈME 2 : MODERNE / RUBAN (Cellules biseautées améliorées)
+     THÈME 2 : MODERNE / RUBAN
      ========================================================================= */
   .hud { display: flex; gap: 4px; width: max-content; align-items: stretch; transform-origin: 0 0; }
   .hud.column { flex-direction: column; align-items: stretch; }
@@ -208,17 +203,17 @@
   .cell.streak.down { background: rgba(168, 68, 10, 0.92); border-color: var(--orange); }
 
   /* =========================================================================
-     THÈME 3 : CARTE VERTICALE (Compact Card)
+     THÈME 3 : CARTE VERTICALE
      ========================================================================= */
   .theme-card {
     background: var(--panel);
     border: 1px solid var(--edge);
     border-radius: 8px;
     padding: 12px 16px;
-    width: 200px;
+    min-width: 200px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
     transform-origin: 0 0;
   }
@@ -238,11 +233,11 @@
   .theme-card .tc-row b { font-variant-numeric: tabular-nums; }
 
   /* =========================================================================
-     THÈME 4 : MINIMALISTE (No card background)
+     THÈME 4 : MINIMALISTE
      ========================================================================= */
   .theme-minimal {
     display: flex;
-    gap: 16px;
+    gap: 14px;
     align-items: center;
     transform-origin: 0 0;
     text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.7);
@@ -262,66 +257,22 @@
 <div id="container"></div>
 
 <script>
-  // --- Générateur d'icônes SVG pour les rangs Rocket League ---
-  function getRankBadgeSvg(tier, size = 38) {
-    // tier: 0=Unranked, 1..3=Bronze, 4..6=Silver, 7..9=Gold, 10..12=Platinum, 13..15=Diamond, 16..18=Champ, 19..21=GC, 22=SSL
-    tier = Number(tier) || 0;
-    let mainColor = '#00c3ff';
-    let secColor = '#0055ff';
-    let symbol = 'diamond';
+  // Mapping officiel des icônes Rocket League
+  const RANK_FILES = {
+    0: 'unranked.png',
+    1: 'bronze-1.png', 2: 'bronze-2.png', 3: 'bronze-3.png',
+    4: 'silver-1.png', 5: 'silver-2.png', 6: 'silver-3.png',
+    7: 'gold-1.png', 8: 'gold-2.png', 9: 'gold-3.png',
+    10: 'platinum-1.png', 11: 'platinum-2.png', 12: 'platinum-3.png',
+    13: 'diamond-1.png', 14: 'diamond-2.png', 15: 'diamond-3.png',
+    16: 'champion-1.png', 17: 'champion-2.png', 18: 'champion-3.png',
+    19: 'grand-champion-1.png', 20: 'grand-champion-2.png', 21: 'grand-champion-3.png',
+    22: 'supersonic-legend.png',
+  };
 
-    if (tier === 0) {
-      mainColor = '#8fa3b8'; secColor = '#475569'; symbol = 'shield';
-    } else if (tier <= 3) {
-      mainColor = '#cd7f32'; secColor = '#804a1b'; symbol = 'bronze';
-    } else if (tier <= 6) {
-      mainColor = '#d9e2ec'; secColor = '#738a9c'; symbol = 'silver';
-    } else if (tier <= 9) {
-      mainColor = '#ffc107'; secColor = '#b28900'; symbol = 'gold';
-    } else if (tier <= 12) {
-      mainColor = '#22d3ee'; secColor = '#0891b2'; symbol = 'plat';
-    } else if (tier <= 15) {
-      mainColor = '#38bdf8'; secColor = '#0284c7'; symbol = 'diamond';
-    } else if (tier <= 18) {
-      mainColor = '#c084fc'; secColor = '#7e22ce'; symbol = 'champ';
-    } else if (tier <= 21) {
-      mainColor = '#f43f5e'; secColor = '#be123c'; symbol = 'gc';
-    } else {
-      mainColor = '#ffffff'; secColor = '#e0e7ff'; symbol = 'ssl';
-    }
-
-    const uid = 'rk_' + tier;
-    return `
-      <svg viewBox="0 0 50 50" width="${size}" height="${size}" style="filter: drop-shadow(0 0 6px ${mainColor}88);">
-        <defs>
-          <linearGradient id="${uid}_g" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="${mainColor}"/>
-            <stop offset="100%" stop-color="${secColor}"/>
-          </linearGradient>
-        </defs>
-        ${tier === 0 ? `
-          <circle cx="25" cy="25" r="20" fill="none" stroke="url(#${uid}_g)" stroke-width="3"/>
-          <text x="25" y="32" text-anchor="middle" font-size="20" font-weight="800" fill="${mainColor}">?</text>
-        ` : tier === 22 ? `
-          <!-- SSL Star -->
-          <polygon points="25,2 31,17 47,19 35,30 38,46 25,38 12,46 15,30 3,19 19,17" fill="url(#${uid}_g)"/>
-          <polygon points="25,8 29,19 40,20 32,28 34,40 25,33 16,40 18,28 10,20 21,19" fill="#0f172a"/>
-          <circle cx="25" cy="25" r="5" fill="${mainColor}"/>
-        ` : `
-          <!-- Rank Shield / Emblem -->
-          <polygon points="25,4 44,14 38,38 25,46 12,38 6,14" fill="url(#${uid}_g)"/>
-          <polygon points="25,8 40,16 35,35 25,42 15,35 10,16" fill="#0b1324"/>
-          ${tier >= 16 ? `
-            <!-- Champ / GC wings / horns -->
-            <polygon points="25,12 36,20 33,33 25,38 17,33 14,20" fill="url(#${uid}_g)"/>
-            <polygon points="25,18 31,23 25,34 19,23" fill="#0b1324"/>
-          ` : `
-            <!-- Standard Jewel -->
-            <polygon points="25,15 33,25 25,35 17,25" fill="url(#${uid}_g)"/>
-          `}
-        `}
-      </svg>
-    `;
+  function getRankBadgeImg(tier, size = 42) {
+    const file = RANK_FILES[Number(tier)] || 'unranked.png';
+    return `<img src="ranks/${file}" alt="Rank" width="${size}" height="${size}" style="filter: drop-shadow(0 0 6px rgba(0, 195, 255, 0.5)); object-fit: contain;">`;
   }
 
   const FIELDS = {
@@ -352,50 +303,72 @@
   const forcedTheme = params.get('theme');
 
   const container = document.getElementById('container');
-  let currentTheme = '';
-  let lastMmrValue = null;
-  let lastStreakValue = null;
 
-  function renderRocketStatsTheme(s, display) {
+  function renderRocketStatsTheme(s, display, fields) {
+    const showRank = fields.includes('rank');
+    const showMmr = fields.includes('mmr') || fields.includes('mmrChange') || fields.includes('mmrSession');
+    const showGamemode = fields.includes('gamemode');
+
     const mmrVal = Number(s.currentMmr || 0).toFixed(1);
     const deltaVal = Number(s.lastMatchMmrChange || 0);
     const deltaStr = (deltaVal >= 0 ? '+' : '') + deltaVal.toFixed(1);
-    const streakStr = (s.streak > 0 ? '+' : '') + s.streak;
-    const modeName = s.recent && s.recent.length ? s.recent[s.recent.length - 1].playlist : 'COMPETITIVE';
+    const sessionDeltaVal = Number(s.sessionMmrChange || 0);
+    const sessionDeltaStr = (sessionDeltaVal >= 0 ? '+' : '') + sessionDeltaVal.toFixed(1);
+    const modeName = s.recent && s.recent.length ? s.recent[s.recent.length - 1].playlist : 'COMPÉTITIF';
 
-    container.innerHTML = `
-      <div class="theme-rocketstats" id="rsHUD">
+    let rankHtml = '';
+    if (showRank) {
+      rankHtml = `
         <div class="rs-rank-section">
           <div class="rs-rank-icon">
-            ${getRankBadgeSvg(s.rankTier, 42)}
+            ${getRankBadgeImg(s.rankTier, 44)}
           </div>
           <div class="rs-rank-info">
-            <span class="rs-mode-tag">${modeName}</span>
+            ${showGamemode ? `<span class="rs-mode-tag">${modeName}</span>` : ''}
             <span class="rs-rank-title">${s.rankName || 'Unranked'}</span>
             <span class="rs-rank-division">Division ${s.division || 1}</span>
           </div>
         </div>
+      `;
+    }
+
+    let mmrHtml = '';
+    if (showMmr) {
+      mmrHtml = `
         <div class="rs-mmr-section">
           <span class="rs-mmr-label">MMR</span>
           <div class="rs-mmr-row">
-            <span class="rs-mmr-value">${mmrVal}</span>
-            <span class="rs-mmr-change ${deltaVal >= 0 ? 'up' : 'down'}">${deltaStr}</span>
+            ${fields.includes('mmr') ? `<span class="rs-mmr-value">${mmrVal}</span>` : ''}
+            ${fields.includes('mmrChange') ? `<span class="rs-mmr-change ${deltaVal >= 0 ? 'up' : 'down'}">${deltaStr}</span>` : ''}
+            ${fields.includes('mmrSession') ? `<span class="rs-mmr-change ${sessionDeltaVal >= 0 ? 'up' : 'down'}">${sessionDeltaStr}</span>` : ''}
           </div>
         </div>
-        <div class="rs-stats-grid">
-          <div class="rs-stat-box wins">
-            <span class="rs-lbl">WINS</span>
-            <span class="rs-val">${s.wins}</span>
-          </div>
-          <div class="rs-stat-box losses">
-            <span class="rs-lbl">LOSSES</span>
-            <span class="rs-val">${s.losses}</span>
-          </div>
-          <div class="rs-stat-box streak">
-            <span class="rs-lbl">STREAK</span>
-            <span class="rs-val">${streakStr}</span>
-          </div>
-        </div>
+      `;
+    }
+
+    let statsHtml = '';
+    const otherFields = fields.filter((f) => !['rank', 'mmr', 'mmrChange', 'mmrSession', 'gamemode'].includes(f));
+    if (otherFields.length > 0) {
+      statsHtml = '<div class="rs-stats-grid">';
+      for (const f of otherFields) {
+        if (FIELDS[f]) {
+          const val = FIELDS[f][1](s);
+          statsHtml += `
+            <div class="rs-stat-box ${f}">
+              <span class="rs-lbl">${FIELDS[f][0].toUpperCase()}</span>
+              <span class="rs-val">${val}</span>
+            </div>
+          `;
+        }
+      }
+      statsHtml += '</div>';
+    }
+
+    container.innerHTML = `
+      <div class="theme-rocketstats" id="rsHUD">
+        ${rankHtml}
+        ${mmrHtml}
+        ${statsHtml}
       </div>
     `;
   }
@@ -407,7 +380,7 @@
         html += `
           <div class="cell rank-cell">
             <div class="in">
-              ${getRankBadgeSvg(s.rankTier, 28)}
+              ${getRankBadgeImg(s.rankTier, 32)}
               <div>
                 <div class="value" style="font-size: 18px;">${s.rankName || 'Unranked'}</div>
                 <div class="label">Div. ${s.division || 1}</div>
@@ -438,36 +411,71 @@
     container.innerHTML = html;
   }
 
-  function renderCardTheme(s, display) {
-    const streakStr = (s.streak > 0 ? '+' : '') + s.streak;
-    container.innerHTML = `
-      <div class="theme-card" id="cardHUD">
+  function renderCardTheme(s, display, fields) {
+    let headerHtml = '';
+    if (fields.includes('rank')) {
+      headerHtml = `
         <div class="tc-header">
-          ${getRankBadgeSvg(s.rankTier, 32)}
+          ${getRankBadgeImg(s.rankTier, 36)}
           <div>
             <div style="font-size: 16px; font-weight: 800;">${s.rankName || 'Unranked'}</div>
             <div style="font-size: 12px; color: var(--muted);">Division ${s.division || 1}</div>
           </div>
         </div>
-        <div class="tc-row"><span>MMR</span><b>${Number(s.currentMmr || 0).toFixed(1)}</b></div>
-        <div class="tc-row"><span>Victoires</span><b style="color:var(--blue);">${s.wins}</b></div>
-        <div class="tc-row"><span>Défaites</span><b style="color:var(--orange);">${s.losses}</b></div>
-        <div class="tc-row"><span>Streak</span><b style="color:var(--gold);">${streakStr}</b></div>
+      `;
+    }
+
+    let rowsHtml = '';
+    for (const f of fields) {
+      if (f === 'rank') continue;
+      if (FIELDS[f]) {
+        const val = FIELDS[f][1](s);
+        let valColor = '';
+        if (f === 'wins') valColor = 'color:var(--blue);';
+        else if (f === 'losses') valColor = 'color:var(--orange);';
+        else if (f === 'streak') valColor = 'color:var(--gold);';
+        rowsHtml += `
+          <div class="tc-row">
+            <span>${FIELDS[f][0]}</span>
+            <b style="${valColor}">${val}</b>
+          </div>
+        `;
+      }
+    }
+
+    container.innerHTML = `
+      <div class="theme-card" id="cardHUD">
+        ${headerHtml}
+        ${rowsHtml}
       </div>
     `;
   }
 
-  function renderMinimalTheme(s, display) {
-    const streakStr = (s.streak > 0 ? '+' : '') + s.streak;
-    container.innerHTML = `
-      <div class="theme-minimal" id="minHUD">
-        <div class="m-item">${getRankBadgeSvg(s.rankTier, 28)}<span class="m-val">${s.rankName || 'Unranked'}</span></div>
-        <div class="m-item"><span class="m-lbl">MMR</span><span class="m-val">${Number(s.currentMmr || 0).toFixed(1)}</span></div>
-        <div class="m-item"><span class="m-lbl">W</span><span class="m-val" style="color:var(--blue);">${s.wins}</span></div>
-        <div class="m-item"><span class="m-lbl">L</span><span class="m-val" style="color:var(--orange);">${s.losses}</span></div>
-        <div class="m-item"><span class="m-lbl">S</span><span class="m-val" style="color:var(--gold);">${streakStr}</span></div>
-      </div>
-    `;
+  function renderMinimalTheme(s, display, fields) {
+    let itemsHtml = '';
+    for (const f of fields) {
+      if (f === 'rank') {
+        itemsHtml += `
+          <div class="m-item">
+            ${getRankBadgeImg(s.rankTier, 30)}
+            <span class="m-val">${s.rankName || 'Unranked'}</span>
+          </div>
+        `;
+      } else if (FIELDS[f]) {
+        const val = FIELDS[f][1](s);
+        let colorStyle = '';
+        if (f === 'wins') colorStyle = 'style="color:var(--blue);"';
+        else if (f === 'losses') colorStyle = 'style="color:var(--orange);"';
+        else if (f === 'streak') colorStyle = 'style="color:var(--gold);"';
+        itemsHtml += `
+          <div class="m-item">
+            <span class="m-lbl">${FIELDS[f][0]}</span>
+            <span class="m-val" ${colorStyle}>${val}</span>
+          </div>
+        `;
+      }
+    }
+    container.innerHTML = `<div class="theme-minimal" id="minHUD">${itemsHtml}</div>`;
   }
 
   function render(state) {
@@ -479,11 +487,11 @@
     const s = state.session || {};
 
     if (theme === 'rocketstats') {
-      renderRocketStatsTheme(s, display);
+      renderRocketStatsTheme(s, display, fields);
     } else if (theme === 'card') {
-      renderCardTheme(s, display);
+      renderCardTheme(s, display, fields);
     } else if (theme === 'minimal') {
-      renderMinimalTheme(s, display);
+      renderMinimalTheme(s, display, fields);
     } else {
       renderModernTheme(s, display, fields, layout);
     }
