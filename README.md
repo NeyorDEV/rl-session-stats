@@ -76,16 +76,27 @@ You can download pre-compiled, ready-to-use Windows binaries directly from the *
 
 ---
 
-## 🎮 First-Time Setup
+## 🎮 Guide de démarrage rapide / Setup Walkthrough
 
-1. **Close Rocket League** before enabling the API.
-2. Launch **RL Session Stats**.
-3. Under the **Rocket League Stats API** section:
-   - Click **Activer la Stats API** (*Enable Stats API*). The application will automatically locate your Steam or Epic Games installation and configure `DefaultStatsAPI.ini` (a `.bak` backup is preserved).
-   - If your installation isn't detected automatically, click **Choisir le dossier…** and select your `rocketleague` root directory.
-4. Open Rocket League and go to:
-   - **Settings → Video → Window Mode: Borderless** (required for transparent overlays to render on top of the game).
-5. Play a game! Your player identity is recognized automatically on your first match.
+Pour que tout fonctionne parfaitement en 2 minutes :
+
+1. **Fermez Rocket League** avant d'activer l'API *(important car le jeu écrase les réglages s'il est ouvert)*.
+2. **Lancez `RL Session Stats`** :
+   - Dans la section **Stats API de Rocket League**, cliquez sur **Activer la Stats API** *(l'application détecte automatiquement votre dossier Steam ou Epic et configure le fichier `DefaultStatsAPI.ini`)*.
+3. **Configurez votre compte & mode de jeu** :
+   - Dans la section **Joueur & Compte** :
+     - Cochez **Epic Games** ou **Steam**.
+     - Entrez votre **pseudo en jeu** exact.
+     - Choisissez votre mode de jeu focalisé : **1v1 (Duel)**, **2v2 (Doubles)** ou **3v3 (Standard)**.
+     - Saisissez votre **MMR de départ** (ex: `1656` pour **Grand Champion II Division 3**) et cliquez sur **Appliquer**. *(Si besoin, un clic sur « 🔗 Ouvrir mon profil Rocket League Tracker » vous ouvre directement votre fiche web).*
+4. **Lancez Rocket League** et configurez l'affichage :
+   - Allez dans **Options → Vidéo → Mode fenêtré : Fenêtré sans bordure** (*Borderless*). C'est indispensable pour que Windows puisse afficher l'overlay transparent par-dessus le jeu.
+5. **Jouez vos matchs !**
+   - Dès votre première partie, votre joueur est automatiquement reconnu.
+   - À chaque fin de match, vos victoires, défaites, buts, arrêts et MMR (**+9 / -9**) sont calculés et sauvegardés en temps réel.
+   - Votre MMR et votre rang sont conservés automatiquement d'une session à l'autre : vous n'aurez plus jamais besoin de les ressaisir !
+
+> 💡 **Astuce (Démarrage automatique avec Windows)** : Pour ne plus jamais oublier de lancer l'application, appuyez sur <kbd>Win</kbd> + <kbd>R</kbd>, tapez `shell:startup` et déposez-y un raccourci de `RL Session Stats (portable).exe`. L'application démarrera automatiquement en arrière-plan à chaque allumage de votre PC !
 
 ---
 
