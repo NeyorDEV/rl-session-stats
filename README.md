@@ -9,6 +9,9 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/NeyorDEV/rl-session-stats/releases/latest">
+    <img src="https://img.shields.io/github/v/release/NeyorDEV/rl-session-stats?logo=github&color=blue" alt="Latest Release">
+  </a>
   <a href="https://github.com/NeyorDEV/rl-session-stats/actions/workflows/build.yml">
     <img src="https://github.com/NeyorDEV/rl-session-stats/actions/workflows/build.yml/badge.svg" alt="Build Status">
   </a>
@@ -44,6 +47,10 @@ It exclusively communicates through Rocket League's **official native local tele
   * Calculates rank tier (Bronze I through Supersonic Legend) and division in real-time.
   * Live session MMR and match delta updates (+9.0 / -9.0 average per ranked match).
   * Custom starting MMR and custom delta values configurable from the settings.
+* **👤 Player Platform Selector (Epic Games / Steam)**:
+  * Select your platform (Epic or Steam) to unlock your in-game username input.
+  * Direct pseudo matching without having to look up complicated account IDs.
+  * Also supports fully automatic camera-based detection.
 * **🎛️ Deep Customization**:
   * Adjust **Opacity** (20% to 100%) and **Scale** (60% to 200%).
   * Screen positioning (Top-Left, Top-Right, Bottom-Left, etc.) with custom pixel offsets.
@@ -55,16 +62,12 @@ It exclusively communicates through Rocket League's **official native local tele
 
 ---
 
-## 🚀 Quick Start (Zero-Install)
+## 🚀 Download & Quick Start (Zero-Install)
 
-You don't need to install any programming tools on your computer. Ready-to-use binaries are built automatically on GitHub:
+You can download pre-compiled, ready-to-use Windows binaries directly from the **[Latest Release](https://github.com/NeyorDEV/rl-session-stats/releases/latest)**:
 
-1. Head over to the **[Actions](../../actions)** tab of this repository.
-2. Click on the latest green workflow run (**Compiler pour Windows**).
-3. Scroll down to **Artifacts** and download **RL-Session-Stats-Windows.zip**.
-4. Extract the zip archive:
-   - `RL Session Stats (portable).exe`: Standalone portable executable.
-   - `RL Session Stats_1.0.0_x64-setup.exe`: Standard Windows installer.
+* **[RL Session Stats (portable).exe](https://github.com/NeyorDEV/rl-session-stats/releases/latest/download/RL.Session.Stats.portable.exe)** : Standalone portable executable (no installation required, simply double-click and run).
+* **[RL Session Stats Setup (.exe)](https://github.com/NeyorDEV/rl-session-stats/releases/latest/download/RL.Session.Stats_1.0.0_x64-setup.exe)** : Standard Windows installer with desktop and Start menu shortcuts.
 
 > *Note: Windows SmartScreen may show an untrusted warning on the first run for unsigned open-source binaries. Click **More info** → **Run anyway**.*
 
