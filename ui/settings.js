@@ -1,22 +1,49 @@
 /* global app */
-const FIELDS = [
-  ['rank', 'Rang & Division'],
-  ['mmr', 'MMR'],
-  ['mmrChange', 'MMR (Dernier match)'],
-  ['mmrSession', 'MMR (Session)'],
-  ['gamemode', 'Mode de jeu'],
-  ['wins', 'Victoires'],
-  ['losses', 'Défaites'],
-  ['streak', 'Streak'],
-  ['winrate', 'Winrate'],
-  ['games', 'Parties'],
-  ['best', 'Meilleure streak'],
-  ['goals', 'Buts'],
-  ['assists', 'Passes'],
-  ['saves', 'Arrêts'],
-  ['shots', 'Tirs'],
-  ['demos', 'Démos'],
-  ['deaths', 'Morts'],
+const FIELD_GROUPS = [
+  {
+    category: 'Rang & MMR',
+    items: [
+      ['rank', 'Rang & Division'],
+      ['mmr', 'MMR Actuel'],
+      ['mmrChange', 'MMR (Dernier match)'],
+      ['mmrSession', 'MMR (Session)'],
+      ['gamemode', 'Mode de jeu'],
+    ],
+  },
+  {
+    category: 'Bilan de Session',
+    items: [
+      ['wins', 'Victoires'],
+      ['losses', 'Défaites'],
+      ['streak', 'Série (Streak)'],
+      ['winrate', 'Winrate (%)'],
+      ['games', 'Parties jouées'],
+      ['best', 'Meilleure série'],
+    ],
+  },
+  {
+    category: 'Événements en Match',
+    items: [
+      ['goals', 'Buts'],
+      ['assists', 'Passes décisives'],
+      ['saves', 'Arrêts'],
+      ['shots', 'Tirs'],
+      ['demos', 'Démolitions'],
+      ['deaths', 'Morts subies'],
+    ],
+  },
+];
+
+const FIELDS = FIELD_GROUPS.flatMap((g) => g.items);
+
+const COLOR_KEYS = [
+  ['colorBg', '#0e192d'],
+  ['colorText', '#ffffff'],
+  ['colorMuted', '#8ea3c6'],
+  ['colorWin', '#2ecc71'],
+  ['colorLoss', '#ff4757'],
+  ['colorAccent', '#36a9ff'],
+  ['colorGoal', '#ffc107'],
 ];
 
 const RANK_FILES = {
@@ -121,6 +148,42 @@ function calculateRankFrontend(mmr, mode = '2v2') {
   return { name: 'Supersonic Legend', div: 1, tier: 22 };
 }
 
+function getDivisionProgress(mmr, mode) {
+  const is1v1 = (mode || '').toLowerCase() === '1v1';
+  const brackets = is1v1 ? [
+    ['Bronze I', 0, 155], ['Bronze II', 155, 215], ['Bronze III', 215, 275],
+    ['Silver I', 275, 335], ['Silver II', 335, 395], ['Silver III', 395, 455],
+    ['Gold I', 455, 515], ['Gold II', 515, 575], ['Gold III', 575, 635],
+    ['Platinum I', 635, 695], ['Platinum II', 695, 755], ['Platinum III', 755, 815],
+    ['Diamond I', 815, 875], ['Diamond II', 875, 935], ['Diamond III', 935, 995],
+    ['Champion I', 995, 1055], ['Champion II', 1055, 1115], ['Champion III', 1115, 1175],
+    ['Grand Champion I', 1175, 1235], ['Grand Champion II', 1235, 1295], ['Grand Champion III', 1295, 1355]
+  ] : [
+    ['Bronze I', 0, 175], ['Bronze II', 175, 235], ['Bronze III', 235, 295],
+    ['Silver I', 295, 355], ['Silver II', 355, 415], ['Silver III', 415, 475],
+    ['Gold I', 475, 535], ['Gold II', 535, 595], ['Gold III', 595, 655],
+    ['Platinum I', 655, 715], ['Platinum II', 715, 775], ['Platinum III', 775, 835],
+    ['Diamond I', 835, 915], ['Diamond II', 915, 995], ['Diamond III', 995, 1075],
+    ['Champion I', 1075, 1195], ['Champion II', 1195, 1315], ['Champion III', 1315, 1435],
+    ['Grand Champion I', 1435, 1575], ['Grand Champion II', 1575, 1715], ['Grand Champion III', 1715, 1875]
+  ];
+  const maxMmr = is1v1 ? 1355 : 1875;
+  if (mmr >= maxMmr) return { percent: 100, neededNext: 0 };
+
+  for (const [name, min, max] of brackets) {
+    if (mmr < max) {
+      const width = (max - min) / 4;
+      const divIndex = Math.min(3, Math.max(0, Math.floor((mmr - min) / width)));
+      const divMin = min + divIndex * width;
+      const divMax = divMin + width;
+      const percent = Math.min(100, Math.max(0, Math.round(((mmr - divMin) / width) * 100)));
+      const needed = Math.max(0, Math.ceil(divMax - mmr));
+      return { percent, neededNext: needed };
+    }
+  }
+  return { percent: 100, neededNext: 0 };
+}
+
 let savedTimer;
 function flashSaved(text = 'Enregistré') {
   $('saved').textContent = text;
@@ -162,6 +225,12 @@ function renderSession() {
   const delta = Number(s.sessionMmrChange || 0);
   $('sideMmrChange').textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1);
   $('sideMmrChange').style.color = delta > 0 ? 'var(--good)' : delta < 0 ? 'var(--orange)' : 'var(--muted)';
+
+  const prog = getDivisionProgress(Number(s.currentMmr || 0), s.focusedPlaylist || S?.settings?.counting?.focusedPlaylist);
+  const nextTarget = (s.division || 1) < 4 ? `Div. ${(s.division || 1) + 1}` : 'Rank Up';
+  if ($('sideDivProgPct')) $('sideDivProgPct').textContent = `${prog.percent}%`;
+  if ($('sideDivProgNeeded')) $('sideDivProgNeeded').textContent = prog.neededNext > 0 ? `+${prog.neededNext} MMR (${nextTarget})` : 'Division max';
+  if ($('sideDivProgFill')) $('sideDivProgFill').style.width = `${prog.percent}%`;
 
   $('streak').textContent = fmtStreak(s.streak);
   $('streakBox').classList.toggle('up', s.streak > 0);
@@ -223,6 +292,210 @@ function renderSession() {
   $('detected').textContent = p.detectedName
     ? `Détecté automatiquement : ${p.detectedName}`
     : 'Pas encore détecté : lance une partie, ton joueur sera reconnu tout seul.';
+
+  updateHistoryView();
+}
+
+let selectedSessionId = 'current';
+
+function renderSessionSelector() {
+  const sel = $('sessionHistorySelect');
+  if (!sel) return;
+
+  const history = S.history || [];
+  const currentVal = selectedSessionId;
+  sel.innerHTML = '';
+
+  const optCur = document.createElement('option');
+  optCur.value = 'current';
+  const cS = S.session || {};
+  const cDelta = Number(cS.sessionMmrChange || 0);
+  const cDeltaStr = (cDelta >= 0 ? '+' : '') + cDelta.toFixed(1);
+  optCur.textContent = `Session en cours (Aujourd'hui) • ${cDeltaStr} MMR (${cS.wins || 0}V - ${cS.losses || 0}D)`;
+  sel.appendChild(optCur);
+
+  for (const item of history) {
+    if (String(item.id) === String(cS.startedAt)) continue;
+    const opt = document.createElement('option');
+    opt.value = item.id;
+    const d = new Date(item.startedAt);
+    const dateStr = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const delta = Number(item.sessionMmrChange || 0);
+    const deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(1);
+    opt.textContent = `${dateStr} à ${timeStr} • ${deltaStr} MMR (${item.wins || 0}V - ${item.losses || 0}D)`;
+    sel.appendChild(opt);
+  }
+
+  const exists = Array.from(sel.options).some(o => o.value === currentVal);
+  sel.value = exists ? currentVal : 'current';
+  selectedSessionId = sel.value;
+}
+
+function updateHistoryView() {
+  renderSessionSelector();
+
+  const isCurrent = selectedSessionId === 'current';
+  const delBtn = $('deleteSessionBtn');
+  if (delBtn) delBtn.style.display = isCurrent ? 'none' : 'inline-block';
+
+  let activeSession = S.session || {};
+  if (!isCurrent) {
+    const found = (S.history || []).find(h => String(h.id) === String(selectedSessionId));
+    if (found) activeSession = found;
+  }
+
+  const matches = activeSession.recent || [];
+  const wins = Number(activeSession.wins || 0);
+  const losses = Number(activeSession.losses || 0);
+  const games = Number(activeSession.games || matches.length);
+  const deltaNet = Number(activeSession.sessionMmrChange || 0);
+  const winrate = games > 0 ? Math.round((100 * wins) / games) + '%' : '–';
+  const streak = activeSession.bestStreak != null ? activeSession.bestStreak : activeSession.streak || 0;
+
+  if ($('histCardRecord')) $('histCardRecord').textContent = `${wins}V - ${losses}D`;
+  if ($('histCardMmr')) {
+    $('histCardMmr').textContent = (deltaNet >= 0 ? '+' : '') + deltaNet.toFixed(1) + ' MMR';
+    $('histCardMmr').style.color = deltaNet > 0 ? '#38ef7d' : deltaNet < 0 ? '#ff6b6b' : 'var(--blue)';
+  }
+  if ($('histCardWinrate')) $('histCardWinrate').textContent = winrate;
+  if ($('histCardStreak')) $('histCardStreak').textContent = (streak > 0 ? '+' : '') + streak;
+
+  if ($('chartHeaderTitle')) {
+    $('chartHeaderTitle').textContent = isCurrent
+      ? "COURBE D'ÉVOLUTION DU MMR (SESSION EN COURS)"
+      : `COURBE DE LA SESSION DU ${new Date(activeSession.startedAt).toLocaleDateString('fr-FR')}`;
+  }
+  if ($('matchesHeaderTitle')) {
+    $('matchesHeaderTitle').textContent = isCurrent
+      ? "Matchs de la session en cours"
+      : `Matchs enregistrés (${new Date(activeSession.startedAt).toLocaleDateString('fr-FR')})`;
+  }
+
+  renderHistoryAndChart(activeSession);
+}
+
+function renderHistoryAndChart(s) {
+  const list = $('historyMatchList');
+  const svg = $('mmrSvg');
+  const summary = $('chartSummary');
+  if (!list || !svg) return;
+
+  const matches = s.recent || [];
+  const startMmr = Number(s.startingMmr || (s.currentMmr - (s.sessionMmrChange || 0)) || 855);
+
+  const mmrPoints = [startMmr];
+  let cur = startMmr;
+  for (const m of matches) {
+    cur += Number(m.mmrChange || 0);
+    mmrPoints.push(cur);
+  }
+
+  const minMmr = Math.min(...mmrPoints);
+  const maxMmr = Math.max(...mmrPoints);
+  const deltaNet = Number(s.sessionMmrChange || 0);
+
+  summary.textContent = `${matches.length} match${matches.length > 1 ? 's' : ''} • Net : ${(deltaNet >= 0 ? '+' : '') + deltaNet.toFixed(1)} MMR (Pic : ${maxMmr.toFixed(1)}, Creux : ${minMmr.toFixed(1)})`;
+
+  const W = 580;
+  const H = 130;
+  const padX = 24;
+  const padY = 20;
+
+  if (mmrPoints.length <= 1) {
+    svg.innerHTML = `
+      <text x="${W / 2}" y="${H / 2}" fill="rgba(255,255,255,0.3)" font-size="12" text-anchor="middle" font-family="inherit">
+        Jouez quelques parties pour afficher la courbe d'évolution du MMR
+      </text>
+    `;
+  } else {
+    const rangeY = (maxMmr - minMmr) || 20;
+    const stepX = (W - 2 * padX) / (mmrPoints.length - 1);
+    const coords = mmrPoints.map((val, idx) => {
+      const x = padX + idx * stepX;
+      const y = H - padY - ((val - minMmr) / rangeY) * (H - 2 * padY);
+      return [x, y, val];
+    });
+
+    const ptsStr = coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+    const polyStr = `${padX},${H - padY} ` + ptsStr + ` ${coords[coords.length - 1][0].toFixed(1)},${H - padY}`;
+
+    let dotsHtml = '';
+    for (const [x, y, val] of coords) {
+      dotsHtml += `
+        <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="#2db0ff" stroke="#ffffff" stroke-width="1.5">
+          <title>${val.toFixed(1)} MMR</title>
+        </circle>
+      `;
+    }
+
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="chartGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#2db0ff" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#2db0ff" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <line x1="${padX}" y1="${H - padY}" x2="${W - padX}" y2="${H - padY}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <polygon points="${polyStr}" fill="url(#chartGrad)"/>
+      <polyline points="${ptsStr}" fill="none" stroke="#2db0ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dotsHtml}
+    `;
+  }
+
+  list.innerHTML = '';
+  if (matches.length === 0) {
+    list.innerHTML = '<p class="hint" style="margin: 0; padding: 10px; text-align: center;">Aucun match joué dans cette session pour l\'instant.</p>';
+  } else {
+    for (const m of matches.slice().reverse()) {
+      const won = !!m.won;
+      const delta = Number(m.mmrChange || 0);
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.justifyContent = 'space-between';
+      row.style.padding = '8px 12px';
+      row.style.background = won ? 'rgba(46, 204, 113, 0.08)' : 'rgba(255, 71, 87, 0.08)';
+      row.style.border = `1px solid ${won ? 'rgba(46, 204, 113, 0.25)' : 'rgba(255, 71, 87, 0.25)'}`;
+      row.style.borderRadius = '6px';
+
+      const left = document.createElement('div');
+      left.style.display = 'flex';
+      left.style.alignItems = 'center';
+      left.style.gap = '10px';
+
+      const badge = document.createElement('span');
+      badge.textContent = won ? 'VICTOIRE' : m.abandoned ? 'ABANDON' : 'DÉFAITE';
+      badge.style.fontSize = '11px';
+      badge.style.fontWeight = '800';
+      badge.style.padding = '2px 6px';
+      badge.style.borderRadius = '4px';
+      badge.style.color = won ? '#a3ffc2' : '#ffad82';
+      badge.style.background = won ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255, 71, 87, 0.2)';
+
+      const plName = document.createElement('span');
+      plName.textContent = m.playlist || 'Match';
+      plName.style.fontWeight = '600';
+      plName.style.fontSize = '13px';
+
+      left.append(badge, plName);
+
+      const right = document.createElement('div');
+      right.style.display = 'flex';
+      right.style.alignItems = 'center';
+      right.style.gap = '12px';
+
+      const deltaSpan = document.createElement('span');
+      deltaSpan.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' MMR';
+      deltaSpan.style.fontWeight = '800';
+      deltaSpan.style.fontSize = '13px';
+      deltaSpan.style.color = delta > 0 ? '#2ecc71' : delta < 0 ? '#ff4757' : 'var(--muted)';
+
+      right.append(deltaSpan);
+      row.append(left, right);
+      list.appendChild(row);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -250,9 +523,33 @@ function renderForm() {
   $('opacityOut').textContent = `${Math.round((o.opacity != null ? o.opacity : 0.92) * 100)} %`;
   setPressed($('layout'), o.layout);
 
-  setValue($('startingMmr'), o.startingMmr || 855);
-  setValue($('mmrDelta'), o.mmrDelta || 9);
-  updateRankPreview(Number($('startingMmr').value));
+  if ($('sessionGoalMmr')) setValue($('sessionGoalMmr'), o.sessionGoalMmr || '');
+  if ($('showGoal')) $('showGoal').checked = !!o.showGoal;
+
+  const goalBox = $('goalPreviewBox');
+  if (goalBox) {
+    const target = Number(o.sessionGoalMmr || 0);
+    const show = !!o.showGoal && target > 0;
+    goalBox.style.display = show ? 'block' : 'none';
+    if (show) {
+      const cur = Number(S?.session?.currentMmr || 0);
+      const rem = Math.max(0, target - cur);
+      const pct = Math.min(100, Math.max(0, Math.round((cur / target) * 100)));
+      if ($('goalPreviewTitle')) $('goalPreviewTitle').textContent = `OBJECTIF : ${target.toFixed(0)} MMR`;
+      if ($('goalPreviewDiff')) {
+        $('goalPreviewDiff').textContent = rem <= 0 ? 'ATTEINT !' : `${rem.toFixed(1)} MMR restant (${pct}% accompli)`;
+        $('goalPreviewDiff').style.color = rem <= 0 ? 'var(--good)' : 'var(--gold)';
+      }
+      if ($('goalPreviewFill')) $('goalPreviewFill').style.width = `${pct}%`;
+    }
+  }
+
+  for (const [key, defaultVal] of COLOR_KEYS) {
+    const val = o[key] || defaultVal;
+    if ($(key)) $(key).value = val;
+    if ($(`${key}Hex`)) $(`${key}Hex`).textContent = val.toUpperCase();
+    if (key === 'colorGoal') document.documentElement.style.setProperty('--gold', val);
+  }
 
   setPressed($('countMode'), c.mode);
   $('customPlaylists').hidden = c.mode !== 'custom';
@@ -260,6 +557,7 @@ function renderForm() {
   $('onlineOnly').checked = !!c.onlineOnly;
   $('countLeave').checked = !!c.countLeaveAsLoss;
   $('resetOnStart').checked = !!c.resetOnStart;
+  if ($('resetOnExit')) $('resetOnExit').checked = !!c.resetOnExit;
 
   setPressed($('rate'), S.settings.statsApi.packetSendRate);
 
@@ -272,7 +570,7 @@ function renderForm() {
   $('customName').disabled = !hasPlatform;
   $('customName').placeholder = hasPlatform ? 'Entrez votre pseudo exact...' : 'Cochez d\'abord Epic ou Steam ci-dessus';
   setValue($('customName'), pl.customName || '');
-  setValue($('playerMmrInput'), Number(S.session.currentMmr || 855).toFixed(0));
+  if ($('autoSyncMmr')) $('autoSyncMmr').checked = !!pl.autoSyncMmr;
 
   // Mise à jour de la carte de profil joueur en direct
   if ($('ppRankImg')) $('ppRankImg').innerHTML = getRankImg(S.session.rankTier, 48);
@@ -281,16 +579,15 @@ function renderForm() {
   if ($('ppMmrVal')) $('ppMmrVal').textContent = Number(S.session.currentMmr || 0).toFixed(1);
   if ($('ppPlatBadge')) $('ppPlatBadge').textContent = pl.platform ? (pl.platform === 'epic' ? 'Epic Games' : 'Steam') : 'Détection auto';
 
+  const formProg = getDivisionProgress(Number(S.session.currentMmr || 0), S.session.focusedPlaylist || S?.settings?.counting?.focusedPlaylist);
+  if ($('ppDivProgPct')) $('ppDivProgPct').textContent = `${formProg.percent}% de la division`;
+  if ($('ppDivProgNeeded')) $('ppDivProgNeeded').textContent = formProg.neededNext > 0 ? `+${formProg.neededNext} MMR pour monter` : 'Division max';
+  if ($('ppDivProgFill')) $('ppDivProgFill').style.width = `${formProg.percent}%`;
+
   $('obsUrl').textContent = S.obsUrl;
   setValue($('serverPort'), S.settings.server.port);
   $('serverError').hidden = !S.serverError;
   $('serverError').textContent = S.serverError || '';
-}
-
-function updateRankPreview(mmr) {
-  const mode = S?.settings?.counting?.focusedPlaylist || '2v2';
-  const rk = calculateRankFrontend(mmr, mode);
-  $('rankPreview').textContent = `Rang calculé pour ce MMR (${mode.toUpperCase()}) : ${rk.name} Div. ${rk.div}`;
 }
 
 function renderPlaylistChecklist() {
@@ -348,21 +645,50 @@ function renderApi(result) {
 // ---------------------------------------------------------------------------
 
 function bind() {
-  // Puces des stats affichées
-  for (const [key, label] of FIELDS) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.dataset.key = key;
-    b.textContent = label;
-    b.addEventListener('click', () => {
-      const current = S.settings.overlay.fields;
-      const next = current.includes(key)
-        ? current.filter((k) => k !== key)
-        : FIELDS.map(([k]) => k).filter((k) => k === key || current.includes(k));
-      save({ overlay: { fields: next } });
-    });
-    $('fields').appendChild(b);
+  // Puces des stats affichées réparties par catégories
+  const fieldsContainer = $('fields');
+  fieldsContainer.innerHTML = '';
+  for (const group of FIELD_GROUPS) {
+    const catDiv = document.createElement('div');
+    catDiv.className = 'field-category';
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'field-category-title';
+    titleDiv.textContent = group.category;
+    catDiv.appendChild(titleDiv);
+
+    const chipsDiv = document.createElement('div');
+    chipsDiv.className = 'chips-grid';
+
+    for (const [key, label] of group.items) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.key = key;
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        const current = S.settings.overlay.fields;
+        const next = current.includes(key)
+          ? current.filter((k) => k !== key)
+          : FIELDS.map(([k]) => k).filter((k) => k === key || current.includes(k));
+        save({ overlay: { fields: next } });
+      });
+      chipsDiv.appendChild(b);
+    }
+
+    catDiv.appendChild(chipsDiv);
+    fieldsContainer.appendChild(catDiv);
   }
+
+  // Raccourcis de sélection pour les statistiques
+  $('selectAllFields')?.addEventListener('click', () => {
+    save({ overlay: { fields: FIELDS.map(([k]) => k) } });
+  });
+  $('selectDefaultFields')?.addEventListener('click', () => {
+    save({ overlay: { fields: ['rank', 'mmr', 'mmrChange', 'wins', 'losses', 'streak'] } });
+  });
+  $('clearAllFields')?.addEventListener('click', () => {
+    save({ overlay: { fields: [] } });
+  });
 
   $('overlayEnabled').addEventListener('change', (e) => save({ overlay: { enabled: e.target.checked } }));
 
@@ -389,44 +715,44 @@ function bind() {
     if (v) save({ overlay: { layout: v } });
   });
 
-  $('startingMmr').addEventListener('input', (e) => updateRankPreview(Number(e.target.value)));
-  $('applyMmr').addEventListener('click', async () => {
-    const mmr = Number($('startingMmr').value);
-    if (!isNaN(mmr) && mmr >= 0) {
-      S = await app.setMmr(mmr);
-      renderSession();
-      renderForm();
-      flashSaved('MMR mis à jour');
-    }
-  });
+  // Couleurs personnalisées de l'overlay
+  let colorSaveTimer = null;
+  for (const [key] of COLOR_KEYS) {
+    const el = $(key);
+    if (!el) continue;
+    el.addEventListener('input', (e) => {
+      const hexEl = $(`${key}Hex`);
+      if (hexEl) hexEl.textContent = e.target.value.toUpperCase();
+      if (key === 'colorGoal') document.documentElement.style.setProperty('--gold', e.target.value);
+      clearTimeout(colorSaveTimer);
+      colorSaveTimer = setTimeout(() => {
+        save({ overlay: { [key]: e.target.value } });
+      }, 100);
+    });
+    el.addEventListener('change', (e) => {
+      clearTimeout(colorSaveTimer);
+      if (key === 'colorGoal') document.documentElement.style.setProperty('--gold', e.target.value);
+      save({ overlay: { [key]: e.target.value } });
+    });
+  }
 
-  $('savePlayerMmrBtn').addEventListener('click', async () => {
-    const mmr = Number($('playerMmrInput').value);
-    if (!isNaN(mmr) && mmr >= 0) {
-      S = await app.setMmr(mmr);
-      renderSession();
-      renderForm();
-      flashSaved('MMR & Profil mis à jour');
+  $('resetColorsBtn')?.addEventListener('click', () => {
+    const resetObj = {};
+    for (const [key, defaultVal] of COLOR_KEYS) {
+      resetObj[key] = defaultVal;
+      if ($(key)) $(key).value = defaultVal;
+      if ($(`${key}Hex`)) $(`${key}Hex`).textContent = defaultVal.toUpperCase();
     }
-  });
-
-  $('playerMmrInput').addEventListener('input', (e) => {
-    const val = Number(e.target.value);
-    const mode = S?.settings?.counting?.focusedPlaylist || '2v2';
-    if (!isNaN(val) && val >= 0) {
-      const rk = calculateRankFrontend(val, mode);
-      if ($('ppRankTitle')) $('ppRankTitle').textContent = `${rk.name} Div. ${rk.div}`;
-      if ($('ppMmrVal')) $('ppMmrVal').textContent = val.toFixed(1);
-      if ($('ppRankImg')) $('ppRankImg').innerHTML = getRankImg(rk.tier, 48);
-    }
+    document.documentElement.style.setProperty('--gold', '#ffc107');
+    save({ overlay: resetObj });
+    flashSaved('Couleurs réinitialisées');
   });
 
   $('focusedPlaylist').addEventListener('click', (e) => {
     const v = e.target.closest('button')?.dataset.value;
     if (v) {
       save({ counting: { focusedPlaylist: v } });
-      updateRankPreview(Number($('startingMmr').value));
-      const val = Number($('playerMmrInput').value);
+      const val = Number(S?.session?.currentMmr || 855);
       if (!isNaN(val) && val >= 0) {
         const rk = calculateRankFrontend(val, v);
         if ($('ppRankTitle')) $('ppRankTitle').textContent = `${rk.name} Div. ${rk.div}`;
@@ -447,13 +773,47 @@ function bind() {
     }
   });
 
+  if ($('autoSyncMmr')) {
+    $('autoSyncMmr').addEventListener('change', (e) => save({ player: { autoSyncMmr: e.target.checked } }));
+  }
+
+  if ($('syncTrackerBtn')) {
+    $('syncTrackerBtn').addEventListener('click', async () => {
+      const btn = $('syncTrackerBtn');
+      const status = $('syncStatusMsg');
+      btn.disabled = true;
+      if (status) {
+        status.style.display = 'block';
+        status.style.color = '#58a6ff';
+        status.textContent = 'Connexion à Rocket League Tracker en arrière-plan (analyse en cours, ~3s)...';
+      }
+      try {
+        const res = await app.syncTrackerMmr();
+        if (res && res.success) {
+          if (status) {
+            status.style.color = '#3fb950';
+            status.textContent = `Succès : MMR officiel synchronisé : ${res.mmr} (${res.rank} ${res.division})`;
+          }
+          flashSaved(`MMR synchronisé : ${res.mmr}`);
+        } else {
+          if (status) {
+            status.style.color = '#d29922';
+            status.textContent = 'Erreur lors de la synchronisation.';
+          }
+        }
+      } catch (err) {
+        if (status) {
+          status.style.color = '#f85149';
+          status.textContent = `Échec : ${err}`;
+        }
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
   $('customName').addEventListener('input', (e) => {
     if ($('ppPseudo')) $('ppPseudo').textContent = e.target.value.trim() || 'Joueur Rocket League';
-  });
-
-  $('mmrDelta').addEventListener('change', (e) => {
-    const delta = Number(e.target.value);
-    if (!isNaN(delta) && delta > 0) save({ overlay: { mmrDelta: delta } });
   });
 
   $('countMode').addEventListener('click', (e) => {
@@ -463,6 +823,7 @@ function bind() {
   $('onlineOnly').addEventListener('change', (e) => save({ counting: { onlineOnly: e.target.checked } }));
   $('countLeave').addEventListener('change', (e) => save({ counting: { countLeaveAsLoss: e.target.checked } }));
   $('resetOnStart').addEventListener('change', (e) => save({ counting: { resetOnStart: e.target.checked } }));
+  if ($('resetOnExit')) $('resetOnExit').addEventListener('change', (e) => save({ counting: { resetOnExit: e.target.checked } }));
 
   $('rate').addEventListener('click', (e) => {
     const v = e.target.closest('button')?.dataset.value;
@@ -525,6 +886,38 @@ function bind() {
     flashSaved('Session remise à zéro');
   });
 
+  if ($('sessionGoalMmr')) {
+    $('sessionGoalMmr').addEventListener('change', (e) => save({ overlay: { sessionGoalMmr: Number(e.target.value) || 0 } }));
+  }
+  if ($('showGoal')) {
+    $('showGoal').addEventListener('change', (e) => save({ overlay: { showGoal: e.target.checked } }));
+  }
+  if ($('autostartWindows')) {
+    $('autostartWindows').addEventListener('change', async (e) => {
+      await app.setAutostart(e.target.checked);
+      flashSaved('Démarrage Windows mis à jour');
+    });
+  }
+
+  if ($('sessionHistorySelect')) {
+    $('sessionHistorySelect').addEventListener('change', (e) => {
+      selectedSessionId = e.target.value;
+      updateHistoryView();
+    });
+  }
+
+  if ($('deleteSessionBtn')) {
+    $('deleteSessionBtn').addEventListener('click', async () => {
+      if (selectedSessionId !== 'current') {
+        const idToDelete = selectedSessionId;
+        selectedSessionId = 'current';
+        S = await app.deleteHistorySession(idToDelete);
+        renderSession();
+        flashSaved('Session supprimée de l\'historique');
+      }
+    });
+  }
+
   $('quit').addEventListener('click', () => app.quit());
 
   app.onState((state) => {
@@ -539,6 +932,12 @@ function bind() {
 (async function init() {
   bind();
   S = await app.getState();
+  if ($('autostartWindows')) {
+    try {
+      const isAuto = await app.getAutostart();
+      $('autostartWindows').checked = !!isAuto;
+    } catch(e) {}
+  }
   renderSession();
   renderForm();
   formReady = true;

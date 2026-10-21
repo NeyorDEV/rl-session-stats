@@ -38,26 +38,35 @@ It exclusively communicates through Rocket League's **official native local tele
 
 ## Features
 
-* **RocketStats Theme & Multiple Layouts**:
-  * **RocketStats (Classic)**: Faithful homage to the beloved RocketStats BakkesMod plugin, featuring high-resolution SVG rank badges, large MMR readout, match delta indicator, and win/loss/streak counters.
-  * **Modern Ribbon**: Sleek angled cells with individual metrics.
-  * **Vertical Card**: Compact side-widget format.
-  * **Minimalist**: Pure text & icon layout with shadow effects.
-* **MMR & Rank Tracking**:
-  * **Accurate Official Brackets**: Exact MMR curves for 1v1, 2v2, and 3v3 (e.g. 1656 ELO = Grand Champion II Div. 3).
+* **Multiple HUD Styles & Layouts**:
+  * **Carte Horizontale**: Classic horizontal banner with high-resolution SVG rank badges, MMR readout, match delta indicator, and win/loss/streak counters.
+  * **Colonne**: Modular cells with clean dividers and individual metrics.
+  * **Carte Verticale**: Compact vertical side-widget format.
+  * **Ligne**: Pure text & icon layout with shadow effects and zero bounding box.
+* **MMR & Real-Time Sync**:
+  * **Automatic Live MMR Sync**: Invisible, headless background sync via Rocket League Tracker Network (zero manual MMR entry needed).
+  * **Accurate Official Brackets**: Exact MMR thresholds for 1v1, 2v2, and 3v3 (e.g. 1656 ELO = Grand Champion II Div. 3).
+  * **Division Progress Bar**: Live progress percentage and exact MMR required to rank up to the next division.
+  * **Floating Badges & Celebrations**: In-game floating MMR delta badges (`+11.2` / `-8.9`) and animated banners on Rank Up and Division Up.
   * **Focused Playlist Selector**: Focus on 1v1 (Duel), 2v2 (Doubles), or 3v3 (Standard) with instant tier & division recalculation.
   * **HD Modern Rank Icons**: Authentic transparent 256x256 post-F2P badges (including ruby GC1, GC2, GC3, and Supersonic Legend).
-  * Live session MMR and match delta updates (+9.0 / -9.0 average per ranked match).
-  * Custom starting MMR and custom delta values configurable from the settings.
-  * Direct 1-click link to view your live profile on Rocket League Tracker.
-* **Player Platform Selector (Epic Games / Steam)**:
-  * Select your platform (Epic or Steam) to unlock your in-game username input.
-  * Direct pseudo matching without having to look up complicated account IDs.
-  * Also supports fully automatic camera-based detection.
-* **Deep Customization**:
-  * Adjust **Opacity** (20% to 100%) and **Scale** (60% to 200%).
-  * Screen positioning (Top-Left, Top-Right, Bottom-Left, etc.) with custom pixel offsets.
-  * Toggle individual stats on/off: Rank, MMR, Match MMR, Session MMR, Gamemode, Wins, Losses, Streak, Winrate, Goals, Saves, Demos, etc.
+  * **Automatic Post-Match Synchronization**: Option to sync official tracker MMR automatically after each finished match.
+* **Multi-Session History**:
+  * **Day-by-Day Session Browser**: Browse previous game sessions day by day.
+  * **Interactive MMR Progression Curve**: Vector SVG graph illustrating MMR evolution match after match.
+  * **Match-by-Match Breakdown**: Detailed cards displaying playlist, result, MMR delta, and individual score/stats for each match.
+  * **4 Live Summary Cards**: Record (W - L), Net MMR delta, Winrate, and Streak.
+* **Session Goal Tracking**:
+  * Configurable target MMR objective with a progress bar and exact remaining MMR required.
+* **Deep Customization & Colors**:
+  * **Fully Configurable Colors**: Customize every color of the overlay (Background, Primary Text, Secondary Text, Wins / Positive MMR, Losses / Negative MMR, Accent tags, and Goal/Streak).
+  * **Opacity & Scale**: Adjust opacity (20% to 100%) and scale (60% to 200%).
+  * **Screen Positioning**: Interactive 6-position screen grid with pixel-precise horizontal and vertical margin controls.
+  * **Categorized Stat Selection**: Toggle individual stats cleanly categorized into *Rank & MMR*, *Session Results*, and *Match Events*.
+* **Native Process Watcher & Autostart**:
+  * **Ultra-Fast Game Watcher**: Native Win32 snapshot check puts overlay to sleep when Rocket League is closed and wakes up automatically upon game launch.
+  * **Silent System Tray Autostart**: Windows startup option starts quietly in the background without UI freezes.
+  * **Auto-Reset on Exit**: Option to automatically start fresh sessions whenever the application closes.
 * **OBS & Streamlabs Ready**:
   * **Browser Source**: Stream real-time stats via the local web server (`http://localhost:5177/overlay`) powered by Server-Sent Events (SSE).
   * **Text Files**: Automatically generates and updates `.txt` files for text sources (`mmr.txt`, `mmr_change.txt`, `mmr_session.txt`, `rank.txt`, `division.txt`, `rank_full.txt`, `wins.txt`, `losses.txt`, `streak.txt`, etc.).
@@ -70,7 +79,7 @@ It exclusively communicates through Rocket League's **official native local tele
 You can download pre-compiled, ready-to-use Windows binaries directly from the **[Latest Release](https://github.com/NeyorDEV/rl-session-stats/releases/latest)**:
 
 * **[RL Session Stats (portable).exe](https://github.com/NeyorDEV/rl-session-stats/releases/latest/download/RL.Session.Stats.portable.exe)** : Standalone portable executable (no installation required, simply double-click and run).
-* **[RL Session Stats Setup (.exe)](https://github.com/NeyorDEV/rl-session-stats/releases/latest/download/RL.Session.Stats_1.2.0_x64-setup.exe)** : Standard Windows installer with desktop and Start menu shortcuts.
+* **[RL Session Stats Setup (.exe)](https://github.com/NeyorDEV/rl-session-stats/releases/latest/download/RL.Session.Stats_1.3.0_x64-setup.exe)** : Standard Windows installer with desktop and Start menu shortcuts.
 
 > *Note: Windows SmartScreen may show an untrusted warning on the first run for unsigned open-source binaries. Click **More info** -> **Run anyway**.*
 
@@ -88,13 +97,12 @@ Get everything up and running in 2 minutes:
      - Select **Epic Games** or **Steam**.
      - Type your exact **in-game username**.
      - Select your focused playlist: **1v1 (Duel)**, **2v2 (Doubles)**, or **3v3 (Standard)**.
-     - Enter your **starting MMR** (e.g. `1656` for **Grand Champion II Division 3**) and click **Appliquer** (*Apply*). *(Optional: click "Ouvrir mon profil Rocket League Tracker" to inspect your live web stats directly in your browser).*
+     - Click **Synchroniser le vrai MMR en direct** to instantly fetch your official MMR from Tracker Network. *(You can also toggle automatic synchronization after every match).*
 4. **Launch Rocket League** and configure video settings:
    - Navigate to **Options -> Video -> Window Mode: Borderless**. This allows Windows to render transparent overlays on top of the game.
 5. **Play!**
-   - Your player identity is recognized automatically on your first match.
-   - At the end of each game, your wins, losses, goals, saves, and MMR (**+9 / -9**) update and display in real time.
-   - Your MMR and rank are continuously saved across sessions: you never need to retype them!
+   - At the end of each game, your wins, losses, goals, saves, and MMR update and display in real time with floating delta badges and celebratory division rank up animations.
+   - All session data is stored in your multi-session history so you can review previous days anytime.
 
 > **Pro Tip (Auto-start with Windows)**: To never worry about launching the tool before playing, press <kbd>Win</kbd> + <kbd>R</kbd>, type `shell:startup`, and paste a shortcut to `RL Session Stats (portable).exe`. The app will launch silently in your system tray on boot (~0% CPU) and will always be synced!
 

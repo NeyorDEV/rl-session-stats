@@ -19,6 +19,16 @@ pub struct OverlaySettings {
     pub theme: String,
     pub starting_mmr: f64,
     pub mmr_delta: f64,
+    pub session_goal_mmr: f64,
+    pub show_goal: bool,
+    pub custom_colors: bool,
+    pub color_bg: String,
+    pub color_text: String,
+    pub color_muted: String,
+    pub color_win: String,
+    pub color_loss: String,
+    pub color_accent: String,
+    pub color_goal: String,
 }
 
 impl Default for OverlaySettings {
@@ -35,6 +45,16 @@ impl Default for OverlaySettings {
             theme: "rocketstats".into(),
             starting_mmr: 855.0,
             mmr_delta: 9.0,
+            session_goal_mmr: 0.0,
+            show_goal: false,
+            custom_colors: false,
+            color_bg: "#0e192d".into(),
+            color_text: "#ffffff".into(),
+            color_muted: "#8ea3c6".into(),
+            color_win: "#2ecc71".into(),
+            color_loss: "#ff4757".into(),
+            color_accent: "#36a9ff".into(),
+            color_goal: "#ffc107".into(),
         }
     }
 }
@@ -47,6 +67,7 @@ pub struct CountingSettings {
     pub online_only: bool,
     pub count_leave_as_loss: bool,
     pub reset_on_start: bool,
+    pub reset_on_exit: bool,
     pub focused_playlist: String,
 }
 
@@ -58,6 +79,7 @@ impl Default for CountingSettings {
             online_only: true,
             count_leave_as_loss: true,
             reset_on_start: true,
+            reset_on_exit: true,
             focused_playlist: "2v2".into(),
         }
     }
@@ -71,6 +93,7 @@ pub struct PlayerSettings {
     pub primary_id: String,
     pub detected_id: String,
     pub detected_name: String,
+    pub auto_sync_mmr: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

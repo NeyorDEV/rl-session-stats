@@ -253,14 +253,58 @@ pub fn enable_stats_api(install_dir: &str, documents_dir: Option<&Path>, packet_
     Ok(written)
 }
 
+#[cfg(windows)]
 pub fn is_rocket_league_running() -> bool {
-    if !cfg!(windows) {
-        return false;
+    #[repr(C)]
+    struct PROCESSENTRY32W {
+        dw_size: u32,
+        cnt_usage: u32,
+        th32_process_id: u32,
+        th32_default_heap_id: usize,
+        th32_module_id: u32,
+        cnt_threads: u32,
+        th32_parent_process_id: u32,
+        pc_pri_class_base: i32,
+        dw_flags: u32,
+        sz_exe_file: [u16; 260],
     }
-    let mut cmd = Command::new("tasklist");
-    cmd.args(["/FI", "IMAGENAME eq RocketLeague.exe", "/NH"]);
-    hide_console(&mut cmd);
-    cmd.output()
-        .map(|out| String::from_utf8_lossy(&out.stdout).to_lowercase().contains("rocketleague.exe"))
-        .unwrap_or(false)
+
+    extern "system" {
+        fn CreateToolhelp32Snapshot(dw_flags: u32, th32_process_id: u32) -> *mut std::ffi::c_void;
+        fn Process32FirstW(h_snapshot: *mut std::ffi::c_void, lppe: *mut PROCESSENTRY32W) -> i32;
+        fn Process32NextW(h_snapshot: *mut std::ffi::c_void, lppe: *mut PROCESSENTRY32W) -> i32;
+        fn CloseHandle(h_object: *mut std::ffi::c_void) -> i32;
+    }
+
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(0x00000002 /* TH32CS_SNAPPROCESS */, 0);
+        if snapshot.is_null() || snapshot as isize == -1 {
+            return false;
+        }
+
+        let mut entry = std::mem::zeroed::<PROCESSENTRY32W>();
+        entry.dw_size = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+
+        let mut found = false;
+        if Process32FirstW(snapshot, &mut entry) != 0 {
+            loop {
+                let len = entry.sz_exe_file.iter().position(|&c| c == 0).unwrap_or(entry.sz_exe_file.len());
+                let exe = String::from_utf16_lossy(&entry.sz_exe_file[..len]).to_lowercase();
+                if exe == "rocketleague.exe" {
+                    found = true;
+                    break;
+                }
+                if Process32NextW(snapshot, &mut entry) == 0 {
+                    break;
+                }
+            }
+        }
+        CloseHandle(snapshot);
+        found
+    }
+}
+
+#[cfg(not(windows))]
+pub fn is_rocket_league_running() -> bool {
+    false
 }

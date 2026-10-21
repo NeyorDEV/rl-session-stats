@@ -13,7 +13,11 @@ if (!fs.existsSync(outDir)) {
 // Nettoyer les anciens exécutables dans build-output
 for (const file of fs.readdirSync(outDir)) {
   if (file.endsWith('.exe')) {
-    fs.unlinkSync(path.join(outDir, file));
+    try {
+      fs.unlinkSync(path.join(outDir, file));
+    } catch (e) {
+      // Ignorer si verrouillé temporairement
+    }
   }
 }
 
@@ -21,8 +25,16 @@ for (const file of fs.readdirSync(outDir)) {
 const portableSrc = path.join(targetRelease, 'rl-session-stats.exe');
 if (fs.existsSync(portableSrc)) {
   const portableDest = path.join(outDir, 'RL Session Stats (portable).exe');
-  fs.copyFileSync(portableSrc, portableDest);
-  console.log(`Copie portable : ${portableDest}`);
+  try {
+    fs.copyFileSync(portableSrc, portableDest);
+    console.log(`Copie portable : ${portableDest}`);
+  } catch (err) {
+    if (err.code === 'EBUSY') {
+      console.warn(`[AVERTISSEMENT] ${portableDest} est en cours d'utilisation par Windows. L'exécutable release a été généré dans src-tauri/target/release.`);
+    } else {
+      throw err;
+    }
+  }
 }
 
 // Copier l'installeur NSIS

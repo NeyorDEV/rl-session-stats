@@ -25,7 +25,7 @@ use tauri::{
 };
 use tauri_plugin_dialog::DialogExt;
 
-use session::{calculate_rank, CountRules, Effects, Session, Tracker, PLAYLISTS, RANKED};
+use session::{calculate_rank, now_ms, CountRules, Effects, Session, Tracker, PLAYLISTS, RANKED};
 use settings::SettingsStore;
 use stats_client::ClientEvent;
 use web_server::WebServer;
@@ -43,6 +43,7 @@ struct Core {
     overlay_size: (f64, f64),
     obs_dir: PathBuf,
     session_file: PathBuf,
+    history_file: PathBuf,
     log_file: PathBuf,
     documents_dir: Option<PathBuf>,
 }
@@ -86,12 +87,70 @@ impl Core {
         })
     }
 
+    fn load_history(&self) -> Vec<Value> {
+        fs::read_to_string(&self.history_file)
+            .ok()
+            .and_then(|t| serde_json::from_str::<Vec<Value>>(&t).ok())
+            .unwrap_or_default()
+    }
+
+    fn archive_session(&self, s: &Session) {
+        if s.games == 0 {
+            return;
+        }
+        let mut list = self.load_history();
+        let started_at = s.started_at;
+        let ended_at = now_ms();
+        let record = json!({
+            "id": format!("{started_at}"),
+            "startedAt": started_at,
+            "endedAt": ended_at,
+            "games": s.games,
+            "wins": s.wins,
+            "losses": s.losses,
+            "streak": s.streak,
+            "bestStreak": s.best_streak,
+            "sessionMmrChange": s.session_mmr_change,
+            "currentMmr": s.current_mmr,
+            "startingMmr": s.current_mmr - s.session_mmr_change,
+            "rankName": s.rank_name,
+            "division": s.division,
+            "rankTier": s.rank_tier,
+            "focusedPlaylist": s.focused_playlist,
+            "recent": s.recent
+        });
+
+        if let Some(pos) = list.iter().position(|item| item["id"].as_str() == Some(&format!("{started_at}"))) {
+            list[pos] = record;
+        } else {
+            list.insert(0, record);
+        }
+
+        if list.len() > 60 {
+            list.truncate(60);
+        }
+
+        if let Ok(text) = serde_json::to_string_pretty(&list) {
+            let _ = fs::write(&self.history_file, text);
+        }
+    }
+
+    fn delete_history_item(&self, id: &str) {
+        let mut list = self.load_history();
+        list.retain(|item| item["id"].as_str() != Some(id));
+        if let Ok(text) = serde_json::to_string_pretty(&list) {
+            let _ = fs::write(&self.history_file, text);
+        }
+    }
+
     fn full_state(&self, server_error: Option<String>) -> Value {
         let playlists: serde_json::Map<String, Value> =
             PLAYLISTS.iter().map(|(id, name)| (id.to_string(), json!(name))).collect();
+        let history = self.load_history();
         json!({
             "settings": self.store.data,
             "session": self.tracker.session,
+            "history": history,
             "connected": self.connected,
             "inMatch": self.tracker.in_match(),
             "playlists": playlists,
@@ -113,6 +172,9 @@ impl Core {
         let s = &self.tracker.session;
         if let Ok(text) = serde_json::to_string_pretty(s) {
             let _ = fs::write(&self.session_file, text);
+        }
+        if s.games > 0 {
+            self.archive_session(s);
         }
         let _ = fs::create_dir_all(&self.obs_dir);
         let winrate = if s.games > 0 { format!("{}%", (100 * s.wins + s.games / 2) / s.games) } else { "-".into() };
@@ -195,6 +257,14 @@ fn after_effects(app: &AppHandle, effects: Effects) {
         }
         if effects.session_changed {
             c.persist_session();
+            let auto_sync = c.store.data.player.auto_sync_mmr;
+            if auto_sync {
+                let app_handle = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    std::thread::sleep(Duration::from_secs(4));
+                    let _ = perform_tracker_sync(app_handle).await;
+                });
+            }
         }
     }
     if effects.session_changed || effects.status_changed || effects.detected.is_some() {
@@ -259,6 +329,9 @@ fn reset_session(app: &AppHandle) {
     {
         let ctx = app.state::<Ctx>();
         let mut c = ctx.core.lock().unwrap();
+        if c.tracker.session.games > 0 {
+            c.archive_session(&c.tracker.session.clone());
+        }
         c.tracker.reset();
         c.persist_session();
         c.log("Session réinitialisée");
@@ -426,8 +499,351 @@ fn open_browser_url(url: String) {
     let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
 }
 
+fn urlencoding_decode(input: &str) -> String {
+    let mut out = Vec::new();
+    let bytes = input.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(b) = u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16) {
+                out.push(b);
+                i += 3;
+                continue;
+            }
+        }
+        if bytes[i] == b'+' {
+            out.push(b' ');
+        } else {
+            out.push(bytes[i]);
+        }
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+async fn perform_tracker_sync(app: AppHandle) -> Result<Value, String> {
+    let (platform, username, focus) = {
+        let ctx = app.state::<Ctx>();
+        let c = ctx.core.lock().unwrap();
+        let p = &c.store.data.player;
+        let mut user = p.custom_name.trim().to_string();
+        if user.is_empty() {
+            user = p.primary_id.trim().to_string();
+        }
+        if user.is_empty() {
+            user = p.detected_name.trim().to_string();
+        }
+        let mut plat = p.platform.trim().to_lowercase();
+        if plat.is_empty() {
+            plat = "epic".to_string();
+        }
+        (plat, user, c.store.data.counting.focused_playlist.clone())
+    };
+
+    if username.is_empty() {
+        return Err("Veuillez d'abord renseigner votre pseudo dans l'onglet Joueur.".into());
+    }
+
+    let encoded_user: String = username
+        .chars()
+        .map(|c| match c {
+            ' ' => "%20".to_string(),
+            '#' => "%23".to_string(),
+            _ => c.to_string(),
+        })
+        .collect();
+
+    let url_str = format!(
+        "https://rocketleague.tracker.network/rocket-league/profile/{}/{}",
+        platform,
+        encoded_user
+    );
+
+    let parsed_url = url_str
+        .parse::<tauri::Url>()
+        .map_err(|e| format!("URL invalide : {e}"))?;
+
+    // Détruire une éventuelle fenêtre existante
+    if let Some(old) = app.get_webview_window("tracker_sync") {
+        let _ = old.destroy();
+    }
+
+    let init_script = r#"
+(function() {
+  try {
+    const s = document.createElement('style');
+    s.innerHTML = 'html, body { display: none !important; opacity: 0 !important; visibility: hidden !important; }';
+    (document.head || document.documentElement).appendChild(s);
+  } catch (e) {}
+
+  let finished = false;
+  function report(success, data) {
+    if (finished) return;
+    finished = true;
+    window.location.hash = (success ? 'TRN_SUCCESS=' : 'TRN_ERROR=') + encodeURIComponent(JSON.stringify(data));
+  }
+
+  function tryFetch() {
+    try {
+      const parts = window.location.pathname.split('/');
+      const idx = parts.indexOf('profile');
+      if (idx !== -1 && parts.length > idx + 2) {
+        const plat = parts[idx + 1];
+        const user = parts[idx + 2];
+        fetch('https://api.tracker.gg/api/v2/rocket-league/standard/profile/' + plat + '/' + user, {
+          headers: { 'Accept': 'application/json' },
+          credentials: 'include'
+        })
+        .then(r => {
+          if (r.ok) return r.json();
+          throw new Error('HTTP ' + r.status);
+        })
+        .then(data => {
+          if (data && data.data && data.data.segments) {
+            report(true, data.data.segments);
+          }
+        })
+        .catch(() => {});
+      }
+    } catch (e) {}
+  }
+
+  function tryDom() {
+    try {
+      if (document.body && (document.body.innerText.includes('Player Not Found') || document.body.innerText.includes('We could not find'))) {
+        report(false, 'Profil introuvable sur Rocket League Tracker');
+      }
+    } catch (e) {}
+  }
+
+  let attempts = 0;
+  const timer = setInterval(() => {
+    attempts++;
+    tryFetch();
+    tryDom();
+    if (attempts > 30) clearInterval(timer);
+  }, 1000);
+  setTimeout(tryFetch, 1500);
+})();
+"#;
+
+    let win = WebviewWindowBuilder::new(&app, "tracker_sync", WebviewUrl::External(parsed_url))
+        .title("RL Tracker Sync")
+        .inner_size(1.0, 1.0)
+        .position(OFFSCREEN, OFFSCREEN)
+        .transparent(true)
+        .decorations(false)
+        .shadow(false)
+        .skip_taskbar(true)
+        .resizable(false)
+        .focused(false)
+        .visible(false)
+        .initialization_script(init_script)
+        .build()
+        .map_err(|e| format!("Impossible d'ouvrir le navigateur en arrière-plan : {e}"))?;
+
+    let _ = win.hide();
+
+    let mut result_json: Option<Value> = None;
+    let mut err_msg: Option<String> = None;
+
+    for tick in 0..50 {
+        std::thread::sleep(Duration::from_millis(500));
+
+        if tick % 4 == 0 {
+            let _ = win.eval(r#"
+                (function() {
+                  try {
+                    const parts = window.location.pathname.split('/');
+                    const idx = parts.indexOf('profile');
+                    if (idx !== -1 && parts.length > idx + 2) {
+                      const plat = parts[idx + 1];
+                      const user = parts[idx + 2];
+                      fetch('https://api.tracker.gg/api/v2/rocket-league/standard/profile/' + plat + '/' + user, {
+                        headers: { 'Accept': 'application/json' },
+                        credentials: 'include'
+                      })
+                      .then(r => r.json())
+                      .then(data => {
+                        if (data && data.data && data.data.segments) {
+                          window.location.hash = 'TRN_SUCCESS=' + encodeURIComponent(JSON.stringify(data.data.segments));
+                        }
+                      })
+                      .catch(() => {});
+                    }
+                  } catch(e) {}
+                })();
+            "#);
+        }
+
+        if let Ok(u) = win.url() {
+            let s = u.as_str();
+            if let Some(pos) = s.find("#TRN_SUCCESS=") {
+                let payload = &s[pos + "#TRN_SUCCESS=".len()..];
+                let decoded = urlencoding_decode(payload);
+                if let Ok(val) = serde_json::from_str::<Value>(&decoded) {
+                    result_json = Some(val);
+                    break;
+                }
+            } else if let Some(pos) = s.find("#TRN_ERROR=") {
+                let payload = &s[pos + "#TRN_ERROR=".len()..];
+                err_msg = Some(urlencoding_decode(payload));
+                break;
+            }
+        }
+    }
+
+    let _ = win.destroy();
+
+    if let Some(err) = err_msg {
+        return Err(err);
+    }
+
+    let Some(segments) = result_json.and_then(|v| v.as_array().cloned()) else {
+        return Err("Délai de synchronisation dépassé ou profil inaccessible.".into());
+    };
+
+    let target_playlist = match focus.as_str() {
+        "1v1" => "playlist-10",
+        "3v3" => "playlist-13",
+        _ => "playlist-11",
+    };
+
+    let mut found_segment = None;
+    for seg in &segments {
+        if seg["attributes"]["playlist"].as_str() == Some(target_playlist) {
+            found_segment = Some(seg.clone());
+            break;
+        }
+    }
+
+    if found_segment.is_none() {
+        let name_target = match focus.as_str() {
+            "1v1" => "Ranked Duel 1v1",
+            "3v3" => "Ranked Standard 3v3",
+            _ => "Ranked Doubles 2v2",
+        };
+        for seg in &segments {
+            if let Some(name) = seg["metadata"]["name"].as_str() {
+                if name.contains(name_target) {
+                    found_segment = Some(seg.clone());
+                    break;
+                }
+            }
+        }
+    }
+
+    let Some(seg) = found_segment else {
+        return Err(format!("Aucune statistique classée trouvée pour le mode {focus} sur votre profil."));
+    };
+
+    let rating = seg["stats"]["rating"]["value"].as_f64().unwrap_or(0.0);
+    let rank_name = seg["stats"]["tier"]["metadata"]["name"].as_str().unwrap_or("Unranked");
+    let division_name = seg["stats"]["division"]["metadata"]["name"].as_str().unwrap_or("Division I");
+
+    if rating > 0.0 {
+        {
+            let ctx = app.state::<Ctx>();
+            let mut c = ctx.core.lock().unwrap();
+            let is_fresh_session = c.tracker.session.games == 0;
+            let old_mmr = c.tracker.session.current_mmr;
+            c.tracker.set_mmr(rating, &focus);
+            if is_fresh_session {
+                c.tracker.session.session_mmr_change = 0.0;
+                c.tracker.session.last_match_mmr_change = 0.0;
+            } else if old_mmr > 0.0 {
+                let diff = rating - old_mmr;
+                c.tracker.session.last_match_mmr_change = diff;
+                c.tracker.session.session_mmr_change += diff;
+            }
+            let start_mmr = if is_fresh_session { rating } else { c.store.data.overlay.starting_mmr };
+            c.store.update(json!({ "overlay": { "startingMmr": start_mmr } }));
+            c.persist_session();
+            c.log(&format!("MMR synchronisé en direct depuis Tracker Network : {:.1} ({} {})", rating, rank_name, division_name));
+        }
+        publish(&app);
+    }
+
+    Ok(json!({
+        "success": true,
+        "mmr": rating,
+        "rank": rank_name,
+        "division": division_name,
+        "playlist": focus
+    }))
+}
+
+#[tauri::command]
+async fn sync_tracker_mmr(app: AppHandle) -> Result<Value, String> {
+    perform_tracker_sync(app).await
+}
+
+#[tauri::command]
+fn get_autostart() -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut cmd = std::process::Command::new("reg");
+        cmd.args(["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "RL Session Stats"]);
+        cmd.creation_flags(0x0800_0000);
+        let output = cmd.output();
+        output.map(|o| o.status.success()).unwrap_or(false)
+    }
+    #[cfg(not(windows))]
+    false
+}
+
+#[tauri::command]
+fn set_autostart(enabled: bool) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        if enabled {
+            if let Ok(exe_path) = std::env::current_exe() {
+                let cmd = format!("\"{}\" --minimized", exe_path.to_string_lossy());
+                let mut p = std::process::Command::new("reg");
+                p.args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "RL Session Stats", "/t", "REG_SZ", "/d", &cmd, "/f"]);
+                p.creation_flags(0x0800_0000);
+                let output = p.output();
+                return output.map(|o| o.status.success()).unwrap_or(false);
+            }
+        } else {
+            let mut p = std::process::Command::new("reg");
+            p.args(["delete", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "RL Session Stats", "/f"]);
+            p.creation_flags(0x0800_0000);
+            let output = p.output();
+            return output.map(|o| o.status.success()).unwrap_or(false);
+        }
+    }
+    false
+}
+
+fn handle_exit_cleanup(app: &AppHandle) {
+    let ctx = app.state::<Ctx>();
+    let mut c = ctx.core.lock().unwrap();
+    if c.tracker.session.games > 0 {
+        c.archive_session(&c.tracker.session.clone());
+    }
+    if c.store.data.counting.reset_on_exit {
+        c.tracker.reset();
+        c.persist_session();
+    }
+}
+
+#[tauri::command]
+fn delete_history_session(app: AppHandle, id: String) -> Value {
+    {
+        let ctx = app.state::<Ctx>();
+        let c = ctx.core.lock().unwrap();
+        c.delete_history_item(&id);
+    }
+    publish(&app);
+    get_state(app)
+}
+
 #[tauri::command]
 fn quit_app(app: AppHandle) {
+    handle_exit_cleanup(&app);
     app.exit(0);
 }
 
@@ -499,6 +915,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     let rl_port = Arc::new(AtomicU16::new(store.data.stats_api.port));
     let server_port = store.data.server.port;
+    let history_file = data_dir.join("history.json");
     let core = Core {
         store,
         tracker: Tracker::new(session),
@@ -506,6 +923,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         overlay_size: (320.0, 80.0),
         obs_dir: data_dir.join("obs"),
         session_file,
+        history_file,
         log_file,
         documents_dir: app.path().document_dir().ok(),
     };
@@ -537,7 +955,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             "open" => open_settings(app),
             "toggle" => toggle_overlay(app),
             "reset" => reset_session(app),
-            "quit" => app.exit(0),
+            "quit" => {
+                handle_exit_cleanup(app);
+                app.exit(0);
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -615,18 +1036,79 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
-    // Réaffirme régulièrement le « toujours au premier plan » (certains jeux passent devant).
+    // Game Watcher : veille automatique quand le jeu est fermé, réveil et maintien toujours au premier plan
     {
         let app = handle.clone();
-        thread::spawn(move || loop {
-            thread::sleep(Duration::from_secs(3));
-            let enabled = app.state::<Ctx>().core.lock().unwrap().store.data.overlay.enabled;
-            if enabled {
-                if let Some(win) = app.get_webview_window("overlay") {
-                    let _ = win.set_always_on_top(true);
+        thread::spawn(move || {
+            thread::sleep(Duration::from_secs(5));
+            let mut was_running = false;
+            loop {
+                let is_running = rl_config::is_rocket_league_running();
+                let (enabled, auto_sync) = {
+                    let ctx = app.state::<Ctx>();
+                    let c = ctx.core.lock().unwrap();
+                    (c.store.data.overlay.enabled, c.store.data.player.auto_sync_mmr)
+                };
+
+                if is_running {
+                    if !was_running {
+                        was_running = true;
+                        {
+                            let ctx = app.state::<Ctx>();
+                            ctx.core.lock().unwrap().log("Rocket League détecté — réveil de l'overlay");
+                        }
+                        if enabled {
+                            apply_overlay(&app);
+                        }
+                        if auto_sync {
+                            let h = app.clone();
+                            tauri::async_runtime::spawn(async move {
+                                std::thread::sleep(Duration::from_secs(4));
+                                let _ = perform_tracker_sync(h).await;
+                            });
+                        }
+                    } else if enabled {
+                        if let Some(win) = app.get_webview_window("overlay") {
+                            let _ = win.set_always_on_top(true);
+                        }
+                    }
+                } else if was_running {
+                    was_running = false;
+                    {
+                        let ctx = app.state::<Ctx>();
+                        ctx.core.lock().unwrap().log("Rocket League fermé — mise en veille de l'overlay");
+                    }
+                    if let Some(win) = app.get_webview_window("overlay") {
+                        let _ = win.set_position(LogicalPosition::new(OFFSCREEN, OFFSCREEN));
+                    }
                 }
+                thread::sleep(Duration::from_secs(3));
             }
         });
+    }
+
+    // Synchronisation automatique du MMR au lancement si un joueur est déjà configuré
+    {
+        let app = handle.clone();
+        tauri::async_runtime::spawn(async move {
+            thread::sleep(Duration::from_secs(2));
+            let has_user = {
+                let ctx = app.state::<Ctx>();
+                let c = ctx.core.lock().unwrap();
+                let p = &c.store.data.player;
+                !p.custom_name.trim().is_empty() || !p.primary_id.trim().is_empty() || !p.detected_name.trim().is_empty()
+            };
+            if has_user {
+                let _ = perform_tracker_sync(app).await;
+            }
+        });
+    }
+
+    if !std::env::args().any(|a| a == "--minimized") {
+        if let Some(settings_win) = app.get_webview_window("settings") {
+            let _ = settings_win.show();
+            let _ = settings_win.set_focus();
+        }
     }
 
     Ok(())
@@ -647,6 +1129,10 @@ fn main() {
             statsapi_enable,
             open_obs_folder,
             open_browser_url,
+            sync_tracker_mmr,
+            delete_history_session,
+            get_autostart,
+            set_autostart,
             quit_app,
             overlay_state,
             overlay_size,

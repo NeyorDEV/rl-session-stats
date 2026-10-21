@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@500;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root {
-    --panel: rgba(10, 20, 36, 0.90);
+    --panel: var(--panel-custom, rgba(10, 20, 36, 0.90));
     --edge: rgba(100, 160, 255, 0.25);
     --text: #eef3ff;
     --muted: #9bb1d4;
@@ -30,7 +30,7 @@
      THÈME 1 : ROCKETSTATS (Classic Card)
      ========================================================================= */
   .theme-rocketstats {
-    background: linear-gradient(135deg, rgba(14, 25, 45, 0.94) 0%, rgba(8, 16, 30, 0.96) 100%);
+    background: var(--panel-custom, linear-gradient(135deg, rgba(14, 25, 45, 0.94) 0%, rgba(8, 16, 30, 0.96) 100%));
     border: 1px solid rgba(80, 150, 255, 0.35);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
     border-radius: 8px;
@@ -250,6 +250,179 @@
   .theme-minimal .m-val { font-size: 26px; font-weight: 900; }
   .theme-minimal .m-lbl { font-size: 12px; font-weight: 700; color: var(--muted); }
 
+  /* =========================================================================
+     ANIMATIONS & EXTENSIONS
+     ========================================================================= */
+  .rs-div-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .rs-div-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2db0ff, #b388ff);
+    border-radius: 2px;
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .rs-div-progress-text {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.4px;
+    margin-top: 2px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* Badge flottant animé de gain/perte MMR */
+  @keyframes mmrPopFloat {
+    0% { opacity: 0; transform: translateY(14px) scale(0.7); }
+    15% { opacity: 1; transform: translateY(0) scale(1.15); }
+    30% { transform: translateY(-2px) scale(1); }
+    80% { opacity: 1; transform: translateY(-6px) scale(1); }
+    100% { opacity: 0; transform: translateY(-18px) scale(0.9); }
+  }
+  .mmr-floating-badge {
+    position: fixed;
+    top: 14px;
+    left: 200px;
+    font-size: 16px;
+    font-weight: 900;
+    padding: 3px 9px;
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+    animation: mmrPopFloat 3.8s forwards ease-out;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .mmr-floating-badge.up {
+    color: #00ff88;
+    background: rgba(8, 32, 18, 0.95);
+    border: 1px solid #00ff88;
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+  }
+  .mmr-floating-badge.down {
+    color: #ff4d4d;
+    background: rgba(36, 10, 14, 0.95);
+    border: 1px solid #ff4d4d;
+    text-shadow: 0 0 10px rgba(255, 77, 77, 0.8);
+  }
+
+  /* Notification animée Rank Up / Division Up */
+  @keyframes celebrationSlide {
+    0% { opacity: 0; transform: translateY(-100%); }
+    12% { opacity: 1; transform: translateY(0); }
+    85% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-100%); }
+  }
+  .celebration-banner {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, rgba(16, 32, 64, 0.98), rgba(8, 16, 36, 0.98));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    z-index: 1000;
+    animation: celebrationSlide 4.5s forwards cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: inset 0 0 24px rgba(255, 215, 0, 0.3);
+    border: 1px solid rgba(255, 215, 0, 0.7);
+    pointer-events: none;
+  }
+  .celebration-title {
+    font-size: 13px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-shadow: 0 0 12px rgba(255, 215, 0, 0.8);
+  }
+  .celebration-sub {
+    font-size: 16px;
+    font-weight: 800;
+    color: #ffffff;
+    margin-top: 2px;
+  }
+
+  /* Barre d'objectif de session (Session Goal) */
+  .session-goal-box {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    box-sizing: border-box;
+  }
+  .session-goal-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    white-space: nowrap;
+    gap: 10px;
+  }
+  .session-goal-bar {
+    width: 100%;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .session-goal-fill {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 3px;
+    transition: width 0.6s ease;
+  }
+
+  /* Section d'objectif intégrée pour RocketStats */
+  .rs-goal-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding-left: 14px;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    min-width: 140px;
+    white-space: nowrap;
+  }
+  .rs-goal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    gap: 8px;
+  }
+  .rs-goal-val {
+    color: var(--gold);
+    font-weight: 900;
+    font-size: 11px;
+  }
+  .rs-goal-bar {
+    width: 100%;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .rs-goal-fill {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 3px;
+    transition: width 0.6s ease;
+  }
+
   body.offline { opacity: .45; }
 </style>
 </head>
@@ -257,6 +430,99 @@
 <div id="container"></div>
 
 <script>
+  let prevMmr = null;
+  let prevTier = null;
+  let prevDiv = null;
+
+  const brackets1v1 = [
+    ['Bronze I', 0, 155, 1],
+    ['Bronze II', 155, 215, 2],
+    ['Bronze III', 215, 275, 3],
+    ['Silver I', 275, 335, 4],
+    ['Silver II', 335, 395, 5],
+    ['Silver III', 395, 455, 6],
+    ['Gold I', 455, 515, 7],
+    ['Gold II', 515, 575, 8],
+    ['Gold III', 575, 635, 9],
+    ['Platinum I', 635, 695, 10],
+    ['Platinum II', 695, 755, 11],
+    ['Platinum III', 755, 815, 12],
+    ['Diamond I', 815, 875, 13],
+    ['Diamond II', 875, 935, 14],
+    ['Diamond III', 935, 995, 15],
+    ['Champion I', 995, 1055, 16],
+    ['Champion II', 1055, 1115, 17],
+    ['Champion III', 1115, 1175, 18],
+    ['Grand Champion I', 1175, 1235, 19],
+    ['Grand Champion II', 1235, 1295, 20],
+    ['Grand Champion III', 1295, 1355, 21],
+  ];
+
+  const brackets2v3 = [
+    ['Bronze I', 0, 175, 1],
+    ['Bronze II', 175, 235, 2],
+    ['Bronze III', 235, 295, 3],
+    ['Silver I', 295, 355, 4],
+    ['Silver II', 355, 415, 5],
+    ['Silver III', 415, 475, 6],
+    ['Gold I', 475, 535, 7],
+    ['Gold II', 535, 595, 8],
+    ['Gold III', 595, 655, 9],
+    ['Platinum I', 655, 715, 10],
+    ['Platinum II', 715, 775, 11],
+    ['Platinum III', 775, 835, 12],
+    ['Diamond I', 835, 915, 13],
+    ['Diamond II', 915, 995, 14],
+    ['Diamond III', 995, 1075, 15],
+    ['Champion I', 1075, 1195, 16],
+    ['Champion II', 1195, 1315, 17],
+    ['Champion III', 1315, 1435, 18],
+    ['Grand Champion I', 1435, 1575, 19],
+    ['Grand Champion II', 1575, 1715, 20],
+    ['Grand Champion III', 1715, 1875, 21],
+  ];
+
+  function getDivisionProgress(mmr, mode) {
+    const is1v1 = (mode || '').toLowerCase() === '1v1';
+    const brackets = is1v1 ? brackets1v1 : brackets2v3;
+    const maxMmr = is1v1 ? 1355 : 1875;
+    if (mmr >= maxMmr) return { percent: 100, neededNext: 0 };
+
+    for (const [name, min, max, tier] of brackets) {
+      if (mmr < max) {
+        const width = (max - min) / 4;
+        const divIndex = Math.min(3, Math.max(0, Math.floor((mmr - min) / width)));
+        const divMin = min + divIndex * width;
+        const divMax = divMin + width;
+        const percent = Math.min(100, Math.max(0, Math.round(((mmr - divMin) / width) * 100)));
+        const needed = Math.max(0, Math.ceil(divMax - mmr));
+        return { percent, neededNext: needed };
+      }
+    }
+    return { percent: 100, neededNext: 0 };
+  }
+
+  function spawnFloatingMmr(delta) {
+    const badge = document.createElement('div');
+    badge.className = `mmr-floating-badge ${delta >= 0 ? 'up' : 'down'}`;
+    badge.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1);
+    document.body.appendChild(badge);
+    setTimeout(() => badge.remove(), 4000);
+  }
+
+  function spawnCelebration(title, sub) {
+    const banner = document.createElement('div');
+    banner.className = 'celebration-banner';
+    banner.innerHTML = `
+      <div class="celebration-title">${title}</div>
+      <div class="celebration-sub">${sub}</div>
+    `;
+    const target = container.firstElementChild || container;
+    target.style.position = 'relative';
+    target.appendChild(banner);
+    setTimeout(() => banner.remove(), 4600);
+  }
+
   // Mapping officiel des icônes Rocket League
   const RANK_FILES = {
     0: 'unranked.png',
@@ -318,15 +584,23 @@
 
     let rankHtml = '';
     if (showRank) {
+      const divProg = getDivisionProgress(Number(s.currentMmr || 0), s.focusedPlaylist);
       rankHtml = `
         <div class="rs-rank-section">
           <div class="rs-rank-icon">
             ${getRankBadgeImg(s.rankTier, 44)}
           </div>
-          <div class="rs-rank-info">
+          <div class="rs-rank-info" style="min-width: 110px;">
             ${showGamemode ? `<span class="rs-mode-tag">${modeName}</span>` : ''}
             <span class="rs-rank-title">${s.rankName || 'Unranked'}</span>
             <span class="rs-rank-division">Division ${s.division || 1}</span>
+            <div class="rs-div-progress-bar" title="${divProg.neededNext} MMR requis pour la division suivante">
+              <div class="rs-div-progress-fill" style="width: ${divProg.percent}%;"></div>
+            </div>
+            <div class="rs-div-progress-text">
+              <span>${divProg.percent}%</span>
+              <span>+${divProg.neededNext} MMR</span>
+            </div>
           </div>
         </div>
       `;
@@ -364,11 +638,31 @@
       statsHtml += '</div>';
     }
 
+    let goalHtml = '';
+    if (display.showGoal && display.sessionGoalMmr > 0) {
+      const target = Number(display.sessionGoalMmr);
+      const current = Number(s.currentMmr || 0);
+      const remaining = Math.max(0, target - current);
+      const pct = Math.min(100, Math.max(0, Math.round((current / target) * 100)));
+      goalHtml = `
+        <div class="rs-goal-section">
+          <div class="rs-goal-header">
+            <span>OBJECTIF : ${target.toFixed(0)}</span>
+            <span class="rs-goal-val" style="color: ${remaining <= 0 ? 'var(--green)' : 'var(--gold)'};">${remaining <= 0 ? 'ATTEINT !' : `${remaining.toFixed(1)} MMR restant`}</span>
+          </div>
+          <div class="rs-goal-bar">
+            <div class="rs-goal-fill" style="width: ${pct}%;"></div>
+          </div>
+        </div>
+      `;
+    }
+
     container.innerHTML = `
       <div class="theme-rocketstats" id="rsHUD">
         ${rankHtml}
         ${mmrHtml}
         ${statsHtml}
+        ${goalHtml}
       </div>
     `;
   }
@@ -377,13 +671,22 @@
     let html = `<div class="hud ${layout === 'column' ? 'column' : 'row'}" id="modernHUD">`;
     for (const key of fields) {
       if (key === 'rank') {
+        const divProg = getDivisionProgress(Number(s.currentMmr || 0), s.focusedPlaylist);
         html += `
-          <div class="cell rank-cell">
-            <div class="in">
-              ${getRankBadgeImg(s.rankTier, 32)}
-              <div>
-                <div class="value" style="font-size: 18px;">${s.rankName || 'Unranked'}</div>
-                <div class="label">Div. ${s.division || 1}</div>
+          <div class="cell rank-cell" style="min-width: 140px;">
+            <div class="in" style="flex-direction: column; align-items: stretch; gap: 4px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                ${getRankBadgeImg(s.rankTier, 32)}
+                <div style="flex: 1;">
+                  <div class="value" style="font-size: 16px; line-height: 1.1;">${s.rankName || 'Unranked'}</div>
+                  <div class="label" style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                    <span>Div. ${s.division || 1}</span>
+                    <span style="color: var(--blue); font-weight: 800; font-size: 10px;">+${divProg.neededNext} MMR</span>
+                  </div>
+                </div>
+              </div>
+              <div class="rs-div-progress-bar" style="margin-top: 1px;" title="${divProg.neededNext} MMR requis pour la division suivante">
+                <div class="rs-div-progress-fill" style="width: ${divProg.percent}%;"></div>
               </div>
             </div>
           </div>
@@ -407,6 +710,23 @@
         `;
       }
     }
+    if (display.showGoal && display.sessionGoalMmr > 0) {
+      const target = Number(display.sessionGoalMmr);
+      const current = Number(s.currentMmr || 0);
+      const remaining = Math.max(0, target - current);
+      const pct = Math.min(100, Math.max(0, Math.round((current / target) * 100)));
+      html += `
+        <div class="session-goal-box" style="margin-top: 6px; width: 100%;">
+          <div class="session-goal-header">
+            <span>OBJECTIF : ${target.toFixed(0)} MMR</span>
+            <span style="color: ${remaining <= 0 ? 'var(--green)' : 'var(--gold)'}; font-weight: 800;">${remaining <= 0 ? 'ATTEINT !' : `${remaining.toFixed(1)} MMR restant`}</span>
+          </div>
+          <div class="session-goal-bar">
+            <div class="session-goal-fill" style="width: ${pct}%;"></div>
+          </div>
+        </div>
+      `;
+    }
     html += '</div>';
     container.innerHTML = html;
   }
@@ -414,12 +734,21 @@
   function renderCardTheme(s, display, fields) {
     let headerHtml = '';
     if (fields.includes('rank')) {
+      const divProg = getDivisionProgress(Number(s.currentMmr || 0), s.focusedPlaylist);
       headerHtml = `
-        <div class="tc-header">
-          ${getRankBadgeImg(s.rankTier, 36)}
-          <div>
-            <div style="font-size: 16px; font-weight: 800;">${s.rankName || 'Unranked'}</div>
-            <div style="font-size: 12px; color: var(--muted);">Division ${s.division || 1}</div>
+        <div class="tc-header" style="flex-direction: column; align-items: stretch; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            ${getRankBadgeImg(s.rankTier, 36)}
+            <div style="flex: 1;">
+              <div style="font-size: 16px; font-weight: 800;">${s.rankName || 'Unranked'}</div>
+              <div style="font-size: 12px; color: var(--muted); display: flex; justify-content: space-between;">
+                <span>Division ${s.division || 1}</span>
+                <span style="color: #2db0ff; font-weight: 700;">+${divProg.neededNext} MMR</span>
+              </div>
+            </div>
+          </div>
+          <div class="rs-div-progress-bar">
+            <div class="rs-div-progress-fill" style="width: ${divProg.percent}%;"></div>
           </div>
         </div>
       `;
@@ -443,10 +772,30 @@
       }
     }
 
+    let goalHtml = '';
+    if (display.showGoal && display.sessionGoalMmr > 0) {
+      const target = Number(display.sessionGoalMmr);
+      const current = Number(s.currentMmr || 0);
+      const remaining = Math.max(0, target - current);
+      const pct = Math.min(100, Math.max(0, Math.round((current / target) * 100)));
+      goalHtml = `
+        <div class="session-goal-box" style="margin-top: 10px; width: 100%;">
+          <div class="session-goal-header">
+            <span>OBJECTIF : ${target.toFixed(0)} MMR</span>
+            <span style="color: ${remaining <= 0 ? 'var(--green)' : 'var(--gold)'}; font-weight: 800;">${remaining <= 0 ? 'ATTEINT !' : `${remaining.toFixed(1)} MMR restant`}</span>
+          </div>
+          <div class="session-goal-bar">
+            <div class="session-goal-fill" style="width: ${pct}%;"></div>
+          </div>
+        </div>
+      `;
+    }
+
     container.innerHTML = `
       <div class="theme-card" id="cardHUD">
         ${headerHtml}
         ${rowsHtml}
+        ${goalHtml}
       </div>
     `;
   }
@@ -475,16 +824,126 @@
         `;
       }
     }
+
+    if (display.showGoal && display.sessionGoalMmr > 0) {
+      const target = Number(display.sessionGoalMmr);
+      const current = Number(s.currentMmr || 0);
+      const remaining = Math.max(0, target - current);
+      const pct = Math.min(100, Math.max(0, Math.round((current / target) * 100)));
+      itemsHtml += `
+        <div class="m-item" style="flex-direction: column; align-items: stretch; min-width: 125px; gap: 3px; justify-content: center;">
+          <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: var(--muted); white-space: nowrap; gap: 8px;">
+            <span>OBJ: ${target.toFixed(0)}</span>
+            <span style="color: ${remaining <= 0 ? 'var(--green)' : 'var(--gold)'}; font-weight: 800;">${remaining <= 0 ? 'OK' : `${remaining.toFixed(1)} restant`}</span>
+          </div>
+          <div style="width: 100%; height: 4px; background: rgba(255, 255, 255, 0.15); border-radius: 2px; overflow: hidden;">
+            <div style="height: 100%; width: ${pct}%; background: var(--gold); border-radius: 2px;"></div>
+          </div>
+        </div>
+      `;
+    }
+
     container.innerHTML = `<div class="theme-minimal" id="minHUD">${itemsHtml}</div>`;
   }
 
   function render(state) {
     const display = state.display || {};
+    const root = document.documentElement;
+    if (display.colorBg) root.style.setProperty('--panel-custom', display.colorBg);
+    else root.style.removeProperty('--panel-custom');
+
+    if (display.colorText) root.style.setProperty('--text', display.colorText);
+    else root.style.removeProperty('--text');
+
+    if (display.colorMuted) root.style.setProperty('--muted', display.colorMuted);
+    else root.style.removeProperty('--muted');
+
+    if (display.colorWin) root.style.setProperty('--green', display.colorWin);
+    else root.style.removeProperty('--green');
+
+    if (display.colorLoss) root.style.setProperty('--orange', display.colorLoss);
+    else root.style.removeProperty('--orange');
+
+    if (display.colorAccent) root.style.setProperty('--blue', display.colorAccent);
+    else root.style.removeProperty('--blue');
+
+    if (display.colorGoal) root.style.setProperty('--gold', display.colorGoal);
+    else root.style.removeProperty('--gold');
+
     const theme = forcedTheme || display.theme || 'rocketstats';
     const fields = (forcedFields ? forcedFields.split(',') : display.fields || ['rank', 'mmr', 'wins', 'losses', 'streak'])
       .filter((k) => FIELDS[k]);
     const layout = forcedLayout || display.layout || 'row';
     const s = state.session || {};
+
+    const curMmr = Number(s.currentMmr || 0);
+    const curTier = Number(s.rankTier || 0);
+    const curDiv = Number(s.division || 1);
+
+    if (prevMmr !== null && Math.abs(curMmr - prevMmr) >= 0.1) {
+      const delta = curMmr - prevMmr;
+      spawnFloatingMmr(delta);
+    }
+
+    if (prevTier !== null && curTier > prevTier) {
+      spawnCelebration('RANK UP !', `${s.rankName || 'Promotion'}`);
+    } else if (prevDiv !== null && curTier === prevTier && curDiv > prevDiv) {
+      spawnCelebration('DIVISION UP !', `${s.rankName || ''} Div. ${curDiv}`);
+    }
+
+    prevMmr = curMmr;
+    prevTier = curTier;
+    prevDiv = curDiv;
+
+    const widget = params.get('widget');
+    if (widget === 'mmr') {
+      const mmrVal = curMmr.toFixed(1);
+      const deltaVal = Number(s.lastMatchMmrChange || 0);
+      const deltaStr = (deltaVal >= 0 ? '+' : '') + deltaVal.toFixed(1);
+      container.innerHTML = `
+        <div class="theme-rocketstats" style="padding: 6px 14px; gap: 8px;">
+          <div class="rs-mmr-section" style="border-right: none; padding-right: 0;">
+            <span class="rs-mmr-label">MMR</span>
+            <div class="rs-mmr-row">
+              <span class="rs-mmr-value">${mmrVal}</span>
+              <span class="rs-mmr-change ${deltaVal >= 0 ? 'up' : 'down'}">${deltaStr}</span>
+            </div>
+          </div>
+        </div>
+      `;
+      reportSize();
+      return;
+    } else if (widget === 'rank') {
+      const divProg = getDivisionProgress(curMmr, s.focusedPlaylist);
+      container.innerHTML = `
+        <div class="theme-rocketstats" style="padding: 6px 14px;">
+          <div class="rs-rank-section" style="border-right: none; padding-right: 0;">
+            <div class="rs-rank-icon">${getRankBadgeImg(s.rankTier, 42)}</div>
+            <div class="rs-rank-info" style="min-width: 100px;">
+              <span class="rs-rank-title">${s.rankName || 'Unranked'}</span>
+              <span class="rs-rank-division">Division ${s.division || 1}</span>
+              <div class="rs-div-progress-bar">
+                <div class="rs-div-progress-fill" style="width: ${divProg.percent}%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      reportSize();
+      return;
+    } else if (widget === 'streak') {
+      container.innerHTML = `
+        <div class="theme-rocketstats" style="padding: 6px 14px;">
+          <div class="rs-stats-grid">
+            <div class="rs-stat-box wins"><span class="rs-lbl">W</span><span class="rs-val">${s.wins || 0}</span></div>
+            <div class="rs-stat-box losses"><span class="rs-lbl">L</span><span class="rs-val">${s.losses || 0}</span></div>
+            <div class="rs-stat-box streak"><span class="rs-lbl">STREAK</span><span class="rs-val">${(s.streak > 0 ? '+' : '') + (s.streak || 0)}</span></div>
+          </div>
+        </div>
+      `;
+      reportSize();
+      return;
+    }
 
     if (theme === 'rocketstats') {
       renderRocketStatsTheme(s, display, fields);
