@@ -4,7 +4,7 @@
   "version": "1.2.0",
   "scripts": {
     "tauri": "tauri",
-    "build": "tauri build"
+    "build": "tauri build && node scripts/copy-build.js"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"
