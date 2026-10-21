@@ -57,6 +57,7 @@ impl Core {
             playlists: c.playlists.clone(),
             count_leave_as_loss: c.count_leave_as_loss,
             mmr_delta: if o.mmr_delta > 0.0 { o.mmr_delta } else { 9.0 },
+            focused_playlist: c.focused_playlist.clone(),
         }
     }
 
@@ -138,6 +139,7 @@ impl Core {
             ("rank", s.rank_name.clone()),
             ("division", format!("Div. {}", s.division)),
             ("rank_full", rank_full),
+            ("mode", s.focused_playlist.clone()),
         ];
         for (name, value) in files {
             let _ = fs::write(self.obs_dir.join(format!("{name}.txt")), value);
@@ -281,7 +283,10 @@ fn save_settings(app: AppHandle, patch: Value) -> Value {
         let ctx = app.state::<Ctx>();
         let mut c = ctx.core.lock().unwrap();
         c.store.update(patch);
+        let focus = c.store.data.counting.focused_playlist.clone();
+        c.tracker.update_focus(&focus);
         ctx.rl_port.store(c.store.data.stats_api.port, Ordering::SeqCst);
+        c.persist_session();
     }
     apply_overlay(&app);
     publish(&app);
@@ -299,7 +304,8 @@ fn set_mmr_cmd(app: AppHandle, mmr: f64) -> Value {
     {
         let ctx = app.state::<Ctx>();
         let mut c = ctx.core.lock().unwrap();
-        c.tracker.set_mmr(mmr);
+        let focus = c.store.data.counting.focused_playlist.clone();
+        c.tracker.set_mmr(mmr, &focus);
         c.store.update(json!({ "overlay": { "startingMmr": mmr } }));
         c.persist_session();
     }

@@ -47,6 +47,7 @@ pub struct CountingSettings {
     pub online_only: bool,
     pub count_leave_as_loss: bool,
     pub reset_on_start: bool,
+    pub focused_playlist: String,
 }
 
 impl Default for CountingSettings {
@@ -57,6 +58,7 @@ impl Default for CountingSettings {
             online_only: true,
             count_leave_as_loss: true,
             reset_on_start: true,
+            focused_playlist: "2v2".into(),
         }
     }
 }

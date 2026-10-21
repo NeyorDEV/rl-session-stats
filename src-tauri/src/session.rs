@@ -38,12 +38,52 @@ pub fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
 }
 
-/// Calcule le rang, la division et le tier numérique (0 à 22) en fonction du MMR.
-pub fn calculate_rank(mmr: f64) -> (&'static str, i64, i64) {
+/// Calcule le rang, la division et le tier numérique (0 à 22) en fonction du MMR et du mode (1v1, 2v2, 3v3).
+pub fn calculate_rank(mmr: f64, mode: &str) -> (&'static str, i64, i64) {
     if mmr <= 0.0 {
         return ("Unranked", 1, 0);
     }
-    // Grille standard Rocket League (2v2 / 3v3)
+
+    if mode == "1v1" {
+        let brackets_1v1: &[(&str, f64, f64, i64)] = &[
+            ("Bronze I", 0.0, 155.0, 1),
+            ("Bronze II", 155.0, 215.0, 2),
+            ("Bronze III", 215.0, 275.0, 3),
+            ("Silver I", 275.0, 335.0, 4),
+            ("Silver II", 335.0, 395.0, 5),
+            ("Silver III", 395.0, 455.0, 6),
+            ("Gold I", 455.0, 515.0, 7),
+            ("Gold II", 515.0, 575.0, 8),
+            ("Gold III", 575.0, 635.0, 9),
+            ("Platinum I", 635.0, 695.0, 10),
+            ("Platinum II", 695.0, 755.0, 11),
+            ("Platinum III", 755.0, 815.0, 12),
+            ("Diamond I", 815.0, 875.0, 13),
+            ("Diamond II", 875.0, 935.0, 14),
+            ("Diamond III", 935.0, 995.0, 15),
+            ("Champion I", 995.0, 1055.0, 16),
+            ("Champion II", 1055.0, 1115.0, 17),
+            ("Champion III", 1115.0, 1175.0, 18),
+            ("Grand Champion I", 1175.0, 1235.0, 19),
+            ("Grand Champion II", 1235.0, 1295.0, 20),
+            ("Grand Champion III", 1295.0, 1355.0, 21),
+        ];
+
+        if mmr >= 1355.0 {
+            return ("Supersonic Legend", 1, 22);
+        }
+
+        for &(name, min, max, tier) in brackets_1v1 {
+            if mmr < max {
+                let width = (max - min) / 4.0;
+                let div = 1 + ((mmr - min) / width).floor().clamp(0.0, 3.0) as i64;
+                return (name, div, tier);
+            }
+        }
+        return ("Supersonic Legend", 1, 22);
+    }
+
+    // Grille officielle Rocket League pour 2v2 / 3v3 (1656 MMR = GC2 Div 3)
     let brackets: &[(&str, f64, f64, i64)] = &[
         ("Bronze I", 0.0, 175.0, 1),
         ("Bronze II", 175.0, 235.0, 2),
@@ -54,21 +94,21 @@ pub fn calculate_rank(mmr: f64) -> (&'static str, i64, i64) {
         ("Gold I", 475.0, 535.0, 7),
         ("Gold II", 535.0, 595.0, 8),
         ("Gold III", 595.0, 655.0, 9),
-        ("Platinum I", 655.0, 735.0, 10),
-        ("Platinum II", 735.0, 815.0, 11),
-        ("Platinum III", 815.0, 895.0, 12),
-        ("Diamond I", 895.0, 995.0, 13),
-        ("Diamond II", 995.0, 1095.0, 14),
-        ("Diamond III", 1095.0, 1195.0, 15),
-        ("Champion I", 1195.0, 1315.0, 16),
-        ("Champion II", 1315.0, 1435.0, 17),
-        ("Champion III", 1435.0, 1555.0, 18),
-        ("Grand Champion I", 1555.0, 1715.0, 19),
-        ("Grand Champion II", 1715.0, 1875.0, 20),
-        ("Grand Champion III", 1875.0, 2035.0, 21),
+        ("Platinum I", 655.0, 715.0, 10),
+        ("Platinum II", 715.0, 775.0, 11),
+        ("Platinum III", 775.0, 835.0, 12),
+        ("Diamond I", 835.0, 915.0, 13),
+        ("Diamond II", 915.0, 995.0, 14),
+        ("Diamond III", 995.0, 1075.0, 15),
+        ("Champion I", 1075.0, 1195.0, 16),
+        ("Champion II", 1195.0, 1315.0, 17),
+        ("Champion III", 1315.0, 1435.0, 18),
+        ("Grand Champion I", 1435.0, 1575.0, 19),
+        ("Grand Champion II", 1575.0, 1715.0, 20),
+        ("Grand Champion III", 1715.0, 1875.0, 21),
     ];
 
-    if mmr >= 2035.0 {
+    if mmr >= 1875.0 {
         return ("Supersonic Legend", 1, 22);
     }
 
@@ -146,11 +186,12 @@ pub struct Session {
     pub rank_name: String,
     pub division: i64,
     pub rank_tier: i64,
+    pub focused_playlist: String,
 }
 
 impl Default for Session {
     fn default() -> Self {
-        let (rank_name, division, rank_tier) = calculate_rank(855.0);
+        let (rank_name, division, rank_tier) = calculate_rank(855.0, "2v2");
         Session {
             started_at: now_ms(),
             games: 0,
@@ -168,6 +209,7 @@ impl Default for Session {
             rank_name: rank_name.to_string(),
             division,
             rank_tier,
+            focused_playlist: "2v2".into(),
         }
     }
 }
@@ -188,6 +230,7 @@ pub struct CountRules {
     pub playlists: Vec<i64>,
     pub count_leave_as_loss: bool,
     pub mmr_delta: f64,
+    pub focused_playlist: String,
 }
 
 impl Default for CountRules {
@@ -198,6 +241,7 @@ impl Default for CountRules {
             playlists: vec![],
             count_leave_as_loss: true,
             mmr_delta: 9.0,
+            focused_playlist: "2v2".into(),
         }
     }
 }
@@ -293,10 +337,12 @@ impl Tracker {
 
     pub fn reset(&mut self) {
         let current_mmr = self.session.current_mmr;
+        let focused = self.session.focused_playlist.clone();
         let mut s = Session::default();
+        s.focused_playlist = focused.clone();
         if current_mmr > 0.0 {
             s.current_mmr = current_mmr;
-            let (name, div, tier) = calculate_rank(current_mmr);
+            let (name, div, tier) = calculate_rank(current_mmr, &focused);
             s.rank_name = name.to_string();
             s.division = div;
             s.rank_tier = tier;
@@ -304,9 +350,18 @@ impl Tracker {
         self.session = s;
     }
 
-    pub fn set_mmr(&mut self, mmr: f64) {
+    pub fn set_mmr(&mut self, mmr: f64, focused_playlist: &str) {
         self.session.current_mmr = mmr.max(0.0);
-        let (name, div, tier) = calculate_rank(self.session.current_mmr);
+        self.session.focused_playlist = focused_playlist.to_string();
+        let (name, div, tier) = calculate_rank(self.session.current_mmr, focused_playlist);
+        self.session.rank_name = name.to_string();
+        self.session.division = div;
+        self.session.rank_tier = tier;
+    }
+
+    pub fn update_focus(&mut self, focused_playlist: &str) {
+        self.session.focused_playlist = focused_playlist.to_string();
+        let (name, div, tier) = calculate_rank(self.session.current_mmr, focused_playlist);
         self.session.rank_name = name.to_string();
         self.session.division = div;
         self.session.rank_tier = tier;
@@ -464,7 +519,7 @@ impl Tracker {
         s.current_mmr = (s.current_mmr + delta).max(0.0);
         s.session_mmr_change += delta;
         s.last_match_mmr_change = delta;
-        let (r_name, r_div, r_tier) = calculate_rank(s.current_mmr);
+        let (r_name, r_div, r_tier) = calculate_rank(s.current_mmr, &rules.focused_playlist);
         s.rank_name = r_name.to_string();
         s.division = r_div;
         s.rank_tier = r_tier;

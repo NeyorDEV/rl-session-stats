@@ -47,9 +47,46 @@ let formReady = false;
 
 const fmtStreak = (n) => (n > 0 ? `+${n}` : String(n));
 
-function calculateRankFrontend(mmr) {
+function calculateRankFrontend(mmr, mode = '2v2') {
   mmr = Number(mmr) || 0;
   if (mmr <= 0) return { name: 'Unranked', div: 1, tier: 0 };
+
+  if (mode === '1v1') {
+    const brackets1v1 = [
+      ['Bronze I', 0, 155, 1],
+      ['Bronze II', 155, 215, 2],
+      ['Bronze III', 215, 275, 3],
+      ['Silver I', 275, 335, 4],
+      ['Silver II', 335, 395, 5],
+      ['Silver III', 395, 455, 6],
+      ['Gold I', 455, 515, 7],
+      ['Gold II', 515, 575, 8],
+      ['Gold III', 575, 635, 9],
+      ['Platinum I', 635, 695, 10],
+      ['Platinum II', 695, 755, 11],
+      ['Platinum III', 755, 815, 12],
+      ['Diamond I', 815, 875, 13],
+      ['Diamond II', 875, 935, 14],
+      ['Diamond III', 935, 995, 15],
+      ['Champion I', 995, 1055, 16],
+      ['Champion II', 1055, 1115, 17],
+      ['Champion III', 1115, 1175, 18],
+      ['Grand Champion I', 1175, 1235, 19],
+      ['Grand Champion II', 1235, 1295, 20],
+      ['Grand Champion III', 1295, 1355, 21],
+    ];
+    if (mmr >= 1355) return { name: 'Supersonic Legend', div: 1, tier: 22 };
+    for (const [name, min, max, tier] of brackets1v1) {
+      if (mmr < max) {
+        const width = (max - min) / 4;
+        const div = 1 + Math.min(3, Math.max(0, Math.floor((mmr - min) / width)));
+        return { name, div, tier };
+      }
+    }
+    return { name: 'Supersonic Legend', div: 1, tier: 22 };
+  }
+
+  // Grille officielle 2v2 / 3v3 (1656 MMR = GC2 Div 3)
   const brackets = [
     ['Bronze I', 0, 175, 1],
     ['Bronze II', 175, 235, 2],
@@ -60,20 +97,20 @@ function calculateRankFrontend(mmr) {
     ['Gold I', 475, 535, 7],
     ['Gold II', 535, 595, 8],
     ['Gold III', 595, 655, 9],
-    ['Platinum I', 655, 735, 10],
-    ['Platinum II', 735, 815, 11],
-    ['Platinum III', 815, 895, 12],
-    ['Diamond I', 895, 995, 13],
-    ['Diamond II', 995, 1095, 14],
-    ['Diamond III', 1095, 1195, 15],
-    ['Champion I', 1195, 1315, 16],
-    ['Champion II', 1315, 1435, 17],
-    ['Champion III', 1435, 1555, 18],
-    ['Grand Champion I', 1555, 1715, 19],
-    ['Grand Champion II', 1715, 1875, 20],
-    ['Grand Champion III', 1875, 2035, 21],
+    ['Platinum I', 655, 715, 10],
+    ['Platinum II', 715, 775, 11],
+    ['Platinum III', 775, 835, 12],
+    ['Diamond I', 835, 915, 13],
+    ['Diamond II', 915, 995, 14],
+    ['Diamond III', 995, 1075, 15],
+    ['Champion I', 1075, 1195, 16],
+    ['Champion II', 1195, 1315, 17],
+    ['Champion III', 1315, 1435, 18],
+    ['Grand Champion I', 1435, 1575, 19],
+    ['Grand Champion II', 1575, 1715, 20],
+    ['Grand Champion III', 1715, 1875, 21],
   ];
-  if (mmr >= 2035) return { name: 'Supersonic Legend', div: 1, tier: 22 };
+  if (mmr >= 1875) return { name: 'Supersonic Legend', div: 1, tier: 22 };
   for (const [name, min, max, tier] of brackets) {
     if (mmr < max) {
       const width = (max - min) / 4;
@@ -226,6 +263,9 @@ function renderForm() {
 
   setPressed($('rate'), S.settings.statsApi.packetSendRate);
 
+  const cPl = S.settings.counting || {};
+  setPressed($('focusedPlaylist'), cPl.focusedPlaylist || '2v2');
+
   const pl = S.settings.player || {};
   setPressed($('playerPlatform'), pl.platform || '');
   const hasPlatform = !!pl.platform;
@@ -248,8 +288,9 @@ function renderForm() {
 }
 
 function updateRankPreview(mmr) {
-  const rk = calculateRankFrontend(mmr);
-  $('rankPreview').textContent = `Rang calculé pour ce MMR : ${rk.name} Div. ${rk.div}`;
+  const mode = S?.settings?.counting?.focusedPlaylist || '2v2';
+  const rk = calculateRankFrontend(mmr, mode);
+  $('rankPreview').textContent = `Rang calculé pour ce MMR (${mode.toUpperCase()}) : ${rk.name} Div. ${rk.div}`;
 }
 
 function renderPlaylistChecklist() {
@@ -371,11 +412,37 @@ function bind() {
 
   $('playerMmrInput').addEventListener('input', (e) => {
     const val = Number(e.target.value);
+    const mode = S?.settings?.counting?.focusedPlaylist || '2v2';
     if (!isNaN(val) && val >= 0) {
-      const rk = calculateRankFrontend(val);
+      const rk = calculateRankFrontend(val, mode);
       if ($('ppRankTitle')) $('ppRankTitle').textContent = `${rk.name} Div. ${rk.div}`;
       if ($('ppMmrVal')) $('ppMmrVal').textContent = val.toFixed(1);
       if ($('ppRankImg')) $('ppRankImg').innerHTML = getRankImg(rk.tier, 48);
+    }
+  });
+
+  $('focusedPlaylist').addEventListener('click', (e) => {
+    const v = e.target.closest('button')?.dataset.value;
+    if (v) {
+      save({ counting: { focusedPlaylist: v } });
+      updateRankPreview(Number($('startingMmr').value));
+      const val = Number($('playerMmrInput').value);
+      if (!isNaN(val) && val >= 0) {
+        const rk = calculateRankFrontend(val, v);
+        if ($('ppRankTitle')) $('ppRankTitle').textContent = `${rk.name} Div. ${rk.div}`;
+        if ($('ppRankImg')) $('ppRankImg').innerHTML = getRankImg(rk.tier, 48);
+      }
+    }
+  });
+
+  $('checkTrackerBtn').addEventListener('click', () => {
+    const pl = S?.settings?.player || {};
+    const plat = pl.platform || 'epic';
+    const name = pl.customName || $('customName').value.trim();
+    if (name) {
+      window.open(`https://rocketleague.tracker.network/rocket-league/profile/${encodeURIComponent(plat)}/${encodeURIComponent(name)}/overview`, '_blank');
+    } else {
+      alert("Veuillez d'abord saisir votre pseudo dans le champ 'Pseudo en jeu'.");
     }
   });
 

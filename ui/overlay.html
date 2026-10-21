@@ -280,7 +280,7 @@
     mmr: ['MMR', (s) => Number(s.currentMmr || 0).toFixed(1)],
     mmrChange: ['MMR Match', (s) => (s.lastMatchMmrChange >= 0 ? '+' : '') + Number(s.lastMatchMmrChange || 0).toFixed(1)],
     mmrSession: ['MMR Session', (s) => (s.sessionMmrChange >= 0 ? '+' : '') + Number(s.sessionMmrChange || 0).toFixed(1)],
-    gamemode: ['Mode', (s) => (s.recent && s.recent.length ? s.recent[s.recent.length - 1].playlist : 'Ranked')],
+    gamemode: ['Mode', (s) => (s.focusedPlaylist ? s.focusedPlaylist.toUpperCase() : (s.recent && s.recent.length ? s.recent[s.recent.length - 1].playlist : '2V2'))],
     wins: ['Victoires', (s) => s.wins],
     losses: ['Défaites', (s) => s.losses],
     streak: ['Streak', (s) => (s.streak > 0 ? '+' : '') + s.streak],
@@ -314,7 +314,7 @@
     const deltaStr = (deltaVal >= 0 ? '+' : '') + deltaVal.toFixed(1);
     const sessionDeltaVal = Number(s.sessionMmrChange || 0);
     const sessionDeltaStr = (sessionDeltaVal >= 0 ? '+' : '') + sessionDeltaVal.toFixed(1);
-    const modeName = s.recent && s.recent.length ? s.recent[s.recent.length - 1].playlist : 'COMPÉTITIF';
+    const modeName = s.focusedPlaylist ? `${s.focusedPlaylist.toUpperCase()} RANKED` : (s.recent && s.recent.length ? s.recent[s.recent.length - 1].playlist : 'COMPÉTITIF');
 
     let rankHtml = '';
     if (showRank) {
