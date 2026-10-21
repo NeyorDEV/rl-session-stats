@@ -27,7 +27,7 @@
 
 ---
 
-## 🛡️ 100% Safe with Easy Anti-Cheat (No Ban Risk)
+## 100% Safe with Easy Anti-Cheat (No Ban Risk)
 
 Ever since **Easy Anti-Cheat (EAC)** was introduced in Rocket League, traditional BakkesMod plugins and memory injectors are blocked or risk permanent account bans.
 
@@ -36,47 +36,47 @@ It exclusively communicates through Rocket League's **official native local tele
 
 ---
 
-## ✨ Features
+## Features
 
-* **🎨 RocketStats Theme & Multiple Layouts**:
+* **RocketStats Theme & Multiple Layouts**:
   * **RocketStats (Classic)**: Faithful homage to the beloved RocketStats BakkesMod plugin, featuring high-resolution SVG rank badges, large MMR readout, match delta indicator, and win/loss/streak counters.
   * **Modern Ribbon**: Sleek angled cells with individual metrics.
   * **Vertical Card**: Compact side-widget format.
   * **Minimalist**: Pure text & icon layout with shadow effects.
-* **📈 MMR & Rank Tracking**:
+* **MMR & Rank Tracking**:
   * **Accurate Official Brackets**: Exact MMR curves for 1v1, 2v2, and 3v3 (e.g. 1656 ELO = Grand Champion II Div. 3).
   * **Focused Playlist Selector**: Focus on 1v1 (Duel), 2v2 (Doubles), or 3v3 (Standard) with instant tier & division recalculation.
-  * **HD Modern Rank Icons**: Authentic transparent 256×256 post-F2P badges (including ruby GC1, GC2, GC3, and Supersonic Legend).
+  * **HD Modern Rank Icons**: Authentic transparent 256x256 post-F2P badges (including ruby GC1, GC2, GC3, and Supersonic Legend).
   * Live session MMR and match delta updates (+9.0 / -9.0 average per ranked match).
   * Custom starting MMR and custom delta values configurable from the settings.
   * Direct 1-click link to view your live profile on Rocket League Tracker.
-* **👤 Player Platform Selector (Epic Games / Steam)**:
+* **Player Platform Selector (Epic Games / Steam)**:
   * Select your platform (Epic or Steam) to unlock your in-game username input.
   * Direct pseudo matching without having to look up complicated account IDs.
   * Also supports fully automatic camera-based detection.
-* **🎛️ Deep Customization**:
+* **Deep Customization**:
   * Adjust **Opacity** (20% to 100%) and **Scale** (60% to 200%).
   * Screen positioning (Top-Left, Top-Right, Bottom-Left, etc.) with custom pixel offsets.
   * Toggle individual stats on/off: Rank, MMR, Match MMR, Session MMR, Gamemode, Wins, Losses, Streak, Winrate, Goals, Saves, Demos, etc.
-* **🎥 OBS & Streamlabs Ready**:
+* **OBS & Streamlabs Ready**:
   * **Browser Source**: Stream real-time stats via the local web server (`http://localhost:5177/overlay`) powered by Server-Sent Events (SSE).
   * **Text Files**: Automatically generates and updates `.txt` files for text sources (`mmr.txt`, `mmr_change.txt`, `mmr_session.txt`, `rank.txt`, `division.txt`, `rank_full.txt`, `wins.txt`, `losses.txt`, `streak.txt`, etc.).
-* **⚡ Ultra Lightweight**: Built on **Tauri 2 (Rust)** and vanilla web technologies with minimal CPU and RAM footprint.
+* **Ultra Lightweight**: Built on **Tauri 2 (Rust)** and vanilla web technologies with minimal CPU and RAM footprint.
 
 ---
 
-## 🚀 Download & Quick Start (Zero-Install)
+## Download & Quick Start (Zero-Install)
 
 You can download pre-compiled, ready-to-use Windows binaries directly from the **[Latest Release](https://github.com/NeyorDEV/rl-session-stats/releases/latest)**:
 
 * **[RL Session Stats (portable).exe](https://github.com/NeyorDEV/rl-session-stats/releases/latest/download/RL.Session.Stats.portable.exe)** : Standalone portable executable (no installation required, simply double-click and run).
-* **[RL Session Stats Setup (.exe)](https://github.com/NeyorDEV/rl-session-stats/releases/latest/download/RL.Session.Stats_1.0.0_x64-setup.exe)** : Standard Windows installer with desktop and Start menu shortcuts.
+* **[RL Session Stats Setup (.exe)](https://github.com/NeyorDEV/rl-session-stats/releases/latest/download/RL.Session.Stats_1.2.0_x64-setup.exe)** : Standard Windows installer with desktop and Start menu shortcuts.
 
-> *Note: Windows SmartScreen may show an untrusted warning on the first run for unsigned open-source binaries. Click **More info** → **Run anyway**.*
+> *Note: Windows SmartScreen may show an untrusted warning on the first run for unsigned open-source binaries. Click **More info** -> **Run anyway**.*
 
 ---
 
-## 🎮 Quick Start & Setup Walkthrough
+## Quick Start & Setup Walkthrough
 
 Get everything up and running in 2 minutes:
 
@@ -88,19 +88,19 @@ Get everything up and running in 2 minutes:
      - Select **Epic Games** or **Steam**.
      - Type your exact **in-game username**.
      - Select your focused playlist: **1v1 (Duel)**, **2v2 (Doubles)**, or **3v3 (Standard)**.
-     - Enter your **starting MMR** (e.g. `1656` for **Grand Champion II Division 3**) and click **Appliquer** (*Apply*). *(Optional: click "🔗 Ouvrir mon profil Rocket League Tracker" to inspect your live web stats directly in your browser).*
+     - Enter your **starting MMR** (e.g. `1656` for **Grand Champion II Division 3**) and click **Appliquer** (*Apply*). *(Optional: click "Ouvrir mon profil Rocket League Tracker" to inspect your live web stats directly in your browser).*
 4. **Launch Rocket League** and configure video settings:
-   - Navigate to **Options → Video → Window Mode: Borderless**. This allows Windows to render transparent overlays on top of the game.
+   - Navigate to **Options -> Video -> Window Mode: Borderless**. This allows Windows to render transparent overlays on top of the game.
 5. **Play!**
    - Your player identity is recognized automatically on your first match.
    - At the end of each game, your wins, losses, goals, saves, and MMR (**+9 / -9**) update and display in real time.
    - Your MMR and rank are continuously saved across sessions: you never need to retype them!
 
-> 💡 **Pro Tip (Auto-start with Windows)**: To never worry about launching the tool before playing, press <kbd>Win</kbd> + <kbd>R</kbd>, type `shell:startup`, and paste a shortcut to `RL Session Stats (portable).exe`. The app will launch silently in your system tray on boot (~0% CPU) and will always be synced!
+> **Pro Tip (Auto-start with Windows)**: To never worry about launching the tool before playing, press <kbd>Win</kbd> + <kbd>R</kbd>, type `shell:startup`, and paste a shortcut to `RL Session Stats (portable).exe`. The app will launch silently in your system tray on boot (~0% CPU) and will always be synced!
 
 ---
 
-## ⌨️ Controls & Shortcuts
+## Controls & Shortcuts
 
 * <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> : Toggle overlay visibility in-game.
 * **Tray Icon**: Right-click the system tray icon near your clock to open settings, reset session, or quit.
@@ -108,7 +108,7 @@ Get everything up and running in 2 minutes:
 
 ---
 
-## 🎥 OBS Studio / Streamlabs Setup
+## OBS Studio / Streamlabs Setup
 
 * **Browser Source**:
   - Add a new **Browser** source.
@@ -123,7 +123,7 @@ Get everything up and running in 2 minutes:
 
 ---
 
-## 🛠️ Building from Source
+## Building from Source
 
 If you want to compile locally:
 
@@ -153,6 +153,6 @@ npx tauri build
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.
