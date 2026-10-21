@@ -145,10 +145,10 @@ npm install
 cargo test --manifest-path src-tauri/Cargo.toml
 
 # Start development mode
-npx tauri dev
+npx @tauri-apps/cli dev
 
 # Build production bundle (.exe & setup)
-npx tauri build
+npx @tauri-apps/cli build
 ```
 
 ---
