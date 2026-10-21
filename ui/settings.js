@@ -440,7 +440,8 @@ function bind() {
     const plat = pl.platform || 'epic';
     const name = pl.customName || $('customName').value.trim();
     if (name) {
-      window.open(`https://rocketleague.tracker.network/rocket-league/profile/${encodeURIComponent(plat)}/${encodeURIComponent(name)}/overview`, '_blank');
+      const url = `https://rocketleague.tracker.network/rocket-league/profile/${encodeURIComponent(plat)}/${encodeURIComponent(name)}/overview`;
+      app.openBrowserUrl(url);
     } else {
       alert("Veuillez d'abord saisir votre pseudo dans le champ 'Pseudo en jeu'.");
     }

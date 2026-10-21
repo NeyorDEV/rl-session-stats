@@ -416,6 +416,17 @@ fn open_obs_folder(app: AppHandle) {
 }
 
 #[tauri::command]
+fn open_browser_url(url: String) {
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return;
+    }
+    #[cfg(windows)]
+    let _ = std::process::Command::new("cmd").args(["/C", "start", "", &url]).spawn();
+    #[cfg(not(windows))]
+    let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
+}
+
+#[tauri::command]
 fn quit_app(app: AppHandle) {
     app.exit(0);
 }
@@ -612,6 +623,7 @@ fn main() {
             statsapi_choose,
             statsapi_enable,
             open_obs_folder,
+            open_browser_url,
             quit_app,
             overlay_state,
             overlay_size,

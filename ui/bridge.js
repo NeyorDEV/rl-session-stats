@@ -27,6 +27,7 @@
     chooseInstall: () => invoke('statsapi_choose'),
     enableStatsApi: () => invoke('statsapi_enable'),
     openObsFolder: () => invoke('open_obs_folder'),
+    openBrowserUrl: (url) => invoke('open_browser_url', { url }),
     copy: copyText,
     quit: () => invoke('quit_app'),
     onState: (callback) => tauri.event.listen('state', (event) => callback(event.payload)),
