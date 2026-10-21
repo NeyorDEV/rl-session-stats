@@ -25,7 +25,7 @@ use tauri::{
 };
 use tauri_plugin_dialog::DialogExt;
 
-use session::{CountRules, Effects, Session, Tracker, PLAYLISTS, RANKED};
+use session::{calculate_rank, CountRules, Effects, Session, Tracker, PLAYLISTS, RANKED};
 use settings::SettingsStore;
 use stats_client::ClientEvent;
 use web_server::WebServer;
@@ -465,13 +465,36 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    let saved_mmr = fs::read_to_string(&session_file)
+        .ok()
+        .and_then(|t| serde_json::from_str::<Session>(&t).ok())
+        .map(|s| s.current_mmr)
+        .filter(|&m| m > 0.0)
+        .unwrap_or(store.data.overlay.starting_mmr);
+
     let session = if store.data.counting.reset_on_start {
-        Session::default()
+        let mut s = Session::default();
+        s.focused_playlist = store.data.counting.focused_playlist.clone();
+        s.current_mmr = saved_mmr;
+        let (name, div, tier) = calculate_rank(saved_mmr, &s.focused_playlist);
+        s.rank_name = name.to_string();
+        s.division = div;
+        s.rank_tier = tier;
+        s
     } else {
         fs::read_to_string(&session_file)
             .ok()
             .and_then(|t| serde_json::from_str::<Session>(&t).ok())
-            .unwrap_or_default()
+            .unwrap_or_else(|| {
+                let mut s = Session::default();
+                s.focused_playlist = store.data.counting.focused_playlist.clone();
+                s.current_mmr = saved_mmr;
+                let (name, div, tier) = calculate_rank(saved_mmr, &s.focused_playlist);
+                s.rank_name = name.to_string();
+                s.division = div;
+                s.rank_tier = tier;
+                s
+            })
     };
 
     let rl_port = Arc::new(AtomicU16::new(store.data.stats_api.port));
