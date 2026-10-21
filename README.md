@@ -76,27 +76,27 @@ You can download pre-compiled, ready-to-use Windows binaries directly from the *
 
 ---
 
-## 🎮 Guide de démarrage rapide / Setup Walkthrough
+## 🎮 Quick Start & Setup Walkthrough
 
-Pour que tout fonctionne parfaitement en 2 minutes :
+Get everything up and running in 2 minutes:
 
-1. **Fermez Rocket League** avant d'activer l'API *(important car le jeu écrase les réglages s'il est ouvert)*.
-2. **Lancez `RL Session Stats`** :
-   - Dans la section **Stats API de Rocket League**, cliquez sur **Activer la Stats API** *(l'application détecte automatiquement votre dossier Steam ou Epic et configure le fichier `DefaultStatsAPI.ini`)*.
-3. **Configurez votre compte & mode de jeu** :
-   - Dans la section **Joueur & Compte** :
-     - Cochez **Epic Games** ou **Steam**.
-     - Entrez votre **pseudo en jeu** exact.
-     - Choisissez votre mode de jeu focalisé : **1v1 (Duel)**, **2v2 (Doubles)** ou **3v3 (Standard)**.
-     - Saisissez votre **MMR de départ** (ex: `1656` pour **Grand Champion II Division 3**) et cliquez sur **Appliquer**. *(Si besoin, un clic sur « 🔗 Ouvrir mon profil Rocket League Tracker » vous ouvre directement votre fiche web).*
-4. **Lancez Rocket League** et configurez l'affichage :
-   - Allez dans **Options → Vidéo → Mode fenêtré : Fenêtré sans bordure** (*Borderless*). C'est indispensable pour que Windows puisse afficher l'overlay transparent par-dessus le jeu.
-5. **Jouez vos matchs !**
-   - Dès votre première partie, votre joueur est automatiquement reconnu.
-   - À chaque fin de match, vos victoires, défaites, buts, arrêts et MMR (**+9 / -9**) sont calculés et sauvegardés en temps réel.
-   - Votre MMR et votre rang sont conservés automatiquement d'une session à l'autre : vous n'aurez plus jamais besoin de les ressaisir !
+1. **Close Rocket League** before enabling the API *(important: Rocket League overwrites configuration files upon exiting)*.
+2. **Launch `RL Session Stats`**:
+   - In the **Rocket League Stats API** section, click **Activer la Stats API** (*Enable Stats API*). The application automatically locates your Steam or Epic Games installation and configures `DefaultStatsAPI.ini` (a `.bak` backup is preserved).
+3. **Configure your account & playlist**:
+   - Under the **Player & Account** (*Joueur & Compte*) section:
+     - Select **Epic Games** or **Steam**.
+     - Type your exact **in-game username**.
+     - Select your focused playlist: **1v1 (Duel)**, **2v2 (Doubles)**, or **3v3 (Standard)**.
+     - Enter your **starting MMR** (e.g. `1656` for **Grand Champion II Division 3**) and click **Appliquer** (*Apply*). *(Optional: click "🔗 Ouvrir mon profil Rocket League Tracker" to inspect your live web stats directly in your browser).*
+4. **Launch Rocket League** and configure video settings:
+   - Navigate to **Options → Video → Window Mode: Borderless**. This allows Windows to render transparent overlays on top of the game.
+5. **Play!**
+   - Your player identity is recognized automatically on your first match.
+   - At the end of each game, your wins, losses, goals, saves, and MMR (**+9 / -9**) update and display in real time.
+   - Your MMR and rank are continuously saved across sessions: you never need to retype them!
 
-> 💡 **Astuce (Démarrage automatique avec Windows)** : Pour ne plus jamais oublier de lancer l'application, appuyez sur <kbd>Win</kbd> + <kbd>R</kbd>, tapez `shell:startup` et déposez-y un raccourci de `RL Session Stats (portable).exe`. L'application démarrera automatiquement en arrière-plan à chaque allumage de votre PC !
+> 💡 **Pro Tip (Auto-start with Windows)**: To never worry about launching the tool before playing, press <kbd>Win</kbd> + <kbd>R</kbd>, type `shell:startup`, and paste a shortcut to `RL Session Stats (portable).exe`. The app will launch silently in your system tray on boot (~0% CPU) and will always be synced!
 
 ---
 
