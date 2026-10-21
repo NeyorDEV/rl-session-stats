@@ -1,0 +1,33 @@
+// Pont entre l'interface et le programme Tauri.
+(function () {
+  const tauri = window.__TAURI__;
+  const invoke = tauri.core.invoke;
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const area = document.createElement('textarea');
+      area.value = text;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+    return true;
+  }
+
+  window.app = {
+    getState: () => invoke('get_state'),
+    save: (patch) => invoke('save_settings', { patch }),
+    reset: () => invoke('reset_session_cmd'),
+    statsApiStatus: () => invoke('statsapi_status'),
+    detectInstall: () => invoke('statsapi_detect'),
+    chooseInstall: () => invoke('statsapi_choose'),
+    enableStatsApi: () => invoke('statsapi_enable'),
+    openObsFolder: () => invoke('open_obs_folder'),
+    copy: copyText,
+    quit: () => invoke('quit_app'),
+    onState: (callback) => tauri.event.listen('state', (event) => callback(event.payload)),
+  };
+})();

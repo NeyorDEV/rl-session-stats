@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "RL Session Stats",
+  "version": "1.0.0",
+  "identifier": "fr.rlsessionstats.app",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "settings",
+        "title": "RL Session Stats",
+        "url": "settings.html",
+        "width": 1040,
+        "height": 780,
+        "minWidth": 860,
+        "minHeight": 600,
+        "center": true,
+        "backgroundColor": "#0b1626"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "languages": ["French"],
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

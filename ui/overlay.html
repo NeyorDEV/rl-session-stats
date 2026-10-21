@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>RL Session Stats - Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@500;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --panel: rgba(10, 22, 40, 0.84);
+    --edge: rgba(120, 170, 255, 0.2);
+    --text: #eef3ff;
+    --muted: #93a7c9;
+    --blue: #36a9ff;
+    --orange: #ff8a2a;
+  }
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body {
+    font-family: 'Saira Semi Condensed', 'Bahnschrift', 'Arial Narrow', 'Segoe UI', sans-serif;
+    color: var(--text);
+    padding: 8px 14px;
+    display: inline-block;
+  }
+  .hud { display: flex; gap: 4px; width: max-content; align-items: stretch; transform-origin: 0 0; }
+  .hud.column { flex-direction: column; align-items: stretch; }
+  .hud:empty { display: none; }
+
+  .cell {
+    transform: skewX(-14deg);
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    padding: 3px 15px 5px;
+  }
+  .in {
+    transform: skewX(14deg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .column .in { flex-direction: row; justify-content: space-between; gap: 18px; min-width: 150px; }
+  .column .label { order: -1; }
+
+  .value {
+    font-weight: 800;
+    font-size: 28px;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+  .label { font-weight: 500; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .column .label { font-size: 14px; align-self: center; }
+
+  .cell.wins { border-bottom: 3px solid var(--blue); }
+  .cell.losses { border-bottom: 3px solid var(--orange); }
+  .wins .value { color: var(--blue); }
+  .losses .value { color: var(--orange); }
+
+  .cell.streak { padding-inline: 20px; transition: background-color .4s, border-color .4s; }
+  .cell.streak .value { font-size: 34px; }
+  .cell.streak.up { background: rgba(18, 88, 168, 0.92); border-color: var(--blue); }
+  .cell.streak.down { background: rgba(168, 68, 10, 0.92); border-color: var(--orange); }
+  .cell.streak.pulse { animation: pulse .6s ease-out; }
+  @keyframes pulse {
+    0% { transform: skewX(-14deg) scale(1); }
+    35% { transform: skewX(-14deg) scale(1.14); }
+    100% { transform: skewX(-14deg) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) { .cell.streak.pulse { animation: none; } }
+
+  body.offline .hud { opacity: .5; }
+</style>
+</head>
+<body>
+<div class="hud" id="hud"></div>
+<script>
+  const FIELDS = {
+    wins: ['Victoires', (s) => s.wins],
+    losses: ['Défaites', (s) => s.losses],
+    streak: ['Streak', (s) => (s.streak > 0 ? '+' : '') + s.streak],
+    winrate: ['Winrate', (s) => (s.games ? Math.round((100 * s.wins) / s.games) + '%' : '–')],
+    games: ['Parties', (s) => s.games],
+    best: ['Meilleure streak', (s) => (s.bestStreak > 0 ? '+' : '') + s.bestStreak],
+    goals: ['Buts', (s) => s.totals.goals],
+    assists: ['Passes', (s) => s.totals.assists],
+    saves: ['Arrêts', (s) => s.totals.saves],
+    shots: ['Tirs', (s) => s.totals.shots],
+    demos: ['Démos', (s) => s.totals.demos],
+    deaths: ['Morts', (s) => s.totals.deaths],
+  };
+
+  const tauri = window.__TAURI__;
+  const isApp = !!tauri; // dans l'appli (fenêtre au-dessus du jeu) ou dans OBS
+  const params = new URLSearchParams(location.search);
+  // Pour OBS, on peut forcer un affichage : /overlay?show=wins,losses&layout=column
+  const forcedFields = params.get('show');
+  const forcedLayout = params.get('layout');
+
+  const hud = document.getElementById('hud');
+  let cells = {};
+  let signature = '';
+
+  function build(fields, layout) {
+    hud.className = 'hud ' + (layout === 'column' ? 'column' : 'row');
+    hud.innerHTML = '';
+    cells = {};
+    for (const key of fields) {
+      const cell = document.createElement('div');
+      cell.className = 'cell ' + key;
+      cell.innerHTML = '<div class="in"><span class="value">0</span><span class="label"></span></div>';
+      cell.querySelector('.label').textContent = FIELDS[key][0];
+      hud.appendChild(cell);
+      cells[key] = { cell, value: cell.querySelector('.value') };
+    }
+  }
+
+  function render(state) {
+    const display = state.display || {};
+    const fields = (forcedFields ? forcedFields.split(',') : display.fields || ['wins', 'losses', 'streak'])
+      .filter((k) => FIELDS[k]);
+    const layout = forcedLayout || display.layout || 'row';
+    const sig = fields.join(',') + '|' + layout;
+    if (sig !== signature) { signature = sig; build(fields, layout); }
+
+    if (isApp) {
+      hud.style.transform = `scale(${Number(display.scale) || 1})`;
+      document.body.style.visibility = display.enabled === false ? 'hidden' : 'visible';
+    }
+
+    const s = state.session;
+    for (const key of fields) {
+      const { cell, value } = cells[key];
+      const next = String(FIELDS[key][1](s));
+      if (key === 'streak') {
+        cell.classList.toggle('up', s.streak > 0);
+        cell.classList.toggle('down', s.streak < 0);
+        if (value.textContent !== next && value.dataset.ready) {
+          cell.classList.remove('pulse');
+          void cell.offsetWidth;
+          cell.classList.add('pulse');
+        }
+        value.dataset.ready = '1';
+      }
+      value.textContent = next;
+    }
+    reportSize();
+  }
+
+  // Dans l'appli : indique au programme la taille à donner à la fenêtre.
+  function reportSize() {
+    if (!isApp) return;
+    requestAnimationFrame(() => {
+      const r = hud.getBoundingClientRect();
+      tauri.core.invoke('overlay_size', { w: r.right + 16, h: r.bottom + 10 });
+    });
+  }
+
+  if (isApp) {
+    document.body.classList.add('app');
+    if ('ResizeObserver' in window) new ResizeObserver(reportSize).observe(hud);
+    if (document.fonts) document.fonts.ready.then(reportSize);
+    tauri.core.invoke('overlay_state').then(render);
+    tauri.event.listen('overlay', (e) => render(e.payload));
+  } else {
+    const source = new EventSource('/events');
+    source.onmessage = (e) => { document.body.classList.remove('offline'); render(JSON.parse(e.data)); };
+    source.onerror = () => document.body.classList.add('offline');
+  }
+</script>
+</body>
+</html>

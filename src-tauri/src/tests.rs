@@ -1,0 +1,276 @@
+//! Tests du moteur : fichiers .ini, logique de session via un faux Rocket League, serveur OBS.
+
+use crate::rl_config;
+use crate::session::{CountRules, Effects, Session, Tracker};
+use crate::settings::SettingsStore;
+use crate::stats_client::{self, ClientEvent, JsonStreamParser};
+use crate::web_server::WebServer;
+use serde_json::{json, Value};
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::AtomicU16;
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
+
+fn rules() -> CountRules {
+    CountRules { online_only: true, mode: "all".into(), playlists: vec![], count_leave_as_loss: true }
+}
+
+fn tick(guid: &str, winner: &str) -> Value {
+    json!({
+        "MatchGuid": guid,
+        "Players": [
+            { "Name": "Dirayor", "PrimaryId": "Epic|me|0", "TeamNum": 0, "Goals": 2, "Shots": 3, "Assists": 1, "Saves": 1, "Demos": 1, "Score": 400 },
+            { "Name": "Adversaire {\"}", "PrimaryId": "Epic|op|0", "TeamNum": 1, "Goals": 1 }
+        ],
+        "Game": {
+            "PlaylistId": 11, "bHasTarget": true, "bReplay": false, "Target": { "Name": "Dirayor" },
+            "bHasWinner": !winner.is_empty(), "Winner": winner,
+            "Teams": [ { "Name": "Blue", "TeamNum": 0 }, { "Name": "Orange", "TeamNum": 1 } ]
+        }
+    })
+}
+
+#[test]
+fn ini_lecture_ecriture() {
+    let text = "[Core.System]\r\nFoo=1\r\n\r\n[TAGame.MatchStatsExporter_TA]\r\nPort=49123\r\nPacketSendRate=0\r\n\r\n[Other]\r\nX=2\r\n";
+    let out = rl_config::set_ini_values(text, &[("PacketSendRate", "10".into()), ("Port", "49123".into())]);
+    assert_eq!(rl_config::get_ini_value(&out, "PacketSendRate").as_deref(), Some("10"));
+    assert!(out.contains("[Other]\r\nX=2"));
+    assert!(out.contains("Foo=1"));
+
+    let empty = rl_config::set_ini_values("", &[("PacketSendRate", "10".into())]);
+    assert_eq!(empty, "[TAGame.MatchStatsExporter_TA]\nPacketSendRate=10\n");
+
+    let other = rl_config::set_ini_values("[A]\nB=1\n", &[("PacketSendRate", "30".into())]);
+    assert_eq!(rl_config::get_ini_value(&other, "PacketSendRate").as_deref(), Some("30"));
+    assert_eq!(rl_config::get_ini_value(&other, "B"), None);
+}
+
+#[test]
+fn activation_stats_api_utf16() {
+    let root = std::env::temp_dir().join(format!("rlss-test-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let config = root.join("rocketleague").join("TAGame").join("Config");
+    std::fs::create_dir_all(&config).unwrap();
+    let file = config.join("DefaultStatsAPI.ini");
+    let mut bytes = vec![0xFF, 0xFE];
+    for u in "[TAGame.MatchStatsExporter_TA]\r\nPacketSendRate=0\r\nPort=49123\r\n".encode_utf16() {
+        bytes.extend_from_slice(&u.to_le_bytes());
+    }
+    std::fs::write(&file, bytes).unwrap();
+
+    let install = root.join("rocketleague").to_string_lossy().into_owned();
+    assert!(rl_config::is_valid_install(&install));
+    assert_eq!(rl_config::read_status(&install, None)["enabled"], false);
+
+    rl_config::enable_stats_api(&install, None, 10, 49123).unwrap();
+    let status = rl_config::read_status(&install, None);
+    assert_eq!(status["enabled"], true);
+    assert_eq!(status["files"][0]["packetSendRate"], 10.0);
+
+    let raw = std::fs::read(&file).unwrap();
+    assert_eq!(&raw[..2], &[0xFF, 0xFE], "encodage UTF-16 conservé");
+    assert!(config.join("DefaultStatsAPI.ini.bak").exists(), "sauvegarde créée");
+    assert_eq!(rl_config::normalize_install_dir(&config).unwrap(), root.join("rocketleague"));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn decoupage_flux_json() {
+    let mut parser = JsonStreamParser::default();
+    let mut out = vec![];
+    let stream = br#"{"Event":"A","Data":"{\"x\":1}"}{"Event":"B","Data":{"s":"}{"}}"#;
+    parser.feed(&stream[..13], &mut out);
+    assert!(out.is_empty());
+    parser.feed(&stream[13..], &mut out);
+    assert_eq!(out.len(), 2);
+    let (name, data) = stats_client::decode_message(out[0].clone()).unwrap();
+    assert_eq!((name.as_str(), data["x"].as_i64()), ("A", Some(1)));
+    assert_eq!(out[1]["Data"]["s"], "}{");
+}
+
+/// Scénario complet via un vrai socket TCP, comme le ferait Rocket League.
+#[test]
+fn session_via_faux_rocket_league() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let tracker = Arc::new(Mutex::new(Tracker::new(Session::default())));
+    let detected = Arc::new(Mutex::new(None::<String>));
+    let (done_tx, done_rx) = mpsc::channel::<&'static str>();
+
+    {
+        let tracker = tracker.clone();
+        let detected = detected.clone();
+        stats_client::spawn(Arc::new(AtomicU16::new(port)), move |event| {
+            let mut t = tracker.lock().unwrap();
+            let effects: Effects = match event {
+                ClientEvent::Connected => Effects::default(),
+                ClientEvent::Disconnected => {
+                    let e = t.connection_lost(&rules());
+                    let _ = done_tx.send("disconnected");
+                    e
+                }
+                ClientEvent::Message(name, data) => {
+                    let id = detected.lock().unwrap().clone();
+                    let e = t.handle(&name, &data, id.as_deref(), &rules());
+                    if name == "Sync" {
+                        let _ = done_tx.send("sync");
+                    }
+                    e
+                }
+            };
+            if let Some((id, _)) = effects.detected {
+                *detected.lock().unwrap() = Some(id);
+            }
+        });
+    }
+
+    let (mut sock, _) = listener.accept().unwrap();
+    let mut send = |event: &str, data: Value| {
+        let msg = json!({ "Event": event, "Data": data });
+        sock.write_all(msg.to_string().as_bytes()).unwrap();
+    };
+    let sync = |send: &mut dyn FnMut(&str, Value)| {
+        send("Sync", json!({}));
+        assert_eq!(done_rx.recv_timeout(Duration::from_secs(5)).unwrap(), "sync");
+    };
+
+    // Match 1 : victoire, avec une démolition subie ; Data parfois en chaîne JSON.
+    send("MatchCreated", json!({ "MatchGuid": "G1" }));
+    send("RoundStarted", Value::String(json!({ "MatchGuid": "G1" }).to_string()));
+    send("UpdateState", tick("G1", ""));
+    send("StatfeedEvent", json!({ "MatchGuid": "G1", "EventName": "Demolish", "SecondaryTarget": { "Name": "Dirayor" } }));
+    send("MatchEnded", json!({ "MatchGuid": "G1", "WinnerTeamNum": 0 }));
+    send("UpdateState", tick("G1", ""));
+    send("MatchDestroyed", json!({ "MatchGuid": "G1" }));
+    sync(&mut send);
+    {
+        let t = tracker.lock().unwrap();
+        let s = &t.session;
+        assert_eq!((s.games, s.wins, s.losses, s.streak), (1, 1, 0, 1));
+        assert_eq!((s.totals.goals, s.totals.deaths), (2, 1));
+    }
+    assert_eq!(detected.lock().unwrap().as_deref(), Some("Epic|me|0"));
+
+    // Match 2 : victoire -> streak 2
+    for e in ["MatchCreated", "RoundStarted"] { send(e, json!({ "MatchGuid": "G2" })); }
+    send("UpdateState", tick("G2", ""));
+    send("MatchEnded", json!({ "MatchGuid": "G2", "WinnerTeamNum": 0 }));
+    send("MatchDestroyed", json!({ "MatchGuid": "G2" }));
+    sync(&mut send);
+    assert_eq!(tracker.lock().unwrap().session.streak, 2);
+
+    // Match 3 : quitté en cours -> défaite (abandon)
+    for e in ["MatchCreated", "RoundStarted"] { send(e, json!({ "MatchGuid": "G3" })); }
+    send("UpdateState", tick("G3", ""));
+    send("MatchDestroyed", json!({ "MatchGuid": "G3" }));
+    sync(&mut send);
+    {
+        let t = tracker.lock().unwrap();
+        let s = &t.session;
+        assert_eq!((s.games, s.wins, s.losses, s.streak, s.best_streak), (3, 2, 1, -1, 2));
+        assert!(s.recent[2].abandoned);
+    }
+
+    // Match 4 : gagnant connu sans MatchEnded (forfait adverse) -> victoire
+    for e in ["MatchCreated", "RoundStarted"] { send(e, json!({ "MatchGuid": "G4" })); }
+    send("UpdateState", tick("G4", "Blue"));
+    send("MatchDestroyed", json!({ "MatchGuid": "G4" }));
+    sync(&mut send);
+    assert_eq!(tracker.lock().unwrap().session.streak, 1);
+
+    // Match 5 : hors ligne (sans MatchGuid) -> ignoré
+    for e in ["MatchCreated", "RoundStarted"] { send(e, json!({})); }
+    send("UpdateState", tick("", ""));
+    send("MatchEnded", json!({ "WinnerTeamNum": 1 }));
+    send("MatchDestroyed", json!({}));
+    sync(&mut send);
+    assert_eq!(tracker.lock().unwrap().session.games, 4);
+
+    // Match 6 : coupure du socket en plein match -> abandon
+    for e in ["MatchCreated", "RoundStarted"] { send(e, json!({ "MatchGuid": "G6" })); }
+    send("UpdateState", tick("G6", ""));
+    sync(&mut send);
+    drop(send);
+    drop(sock);
+    assert_eq!(done_rx.recv_timeout(Duration::from_secs(5)).unwrap(), "disconnected");
+    {
+        let t = tracker.lock().unwrap();
+        let s = &t.session;
+        assert_eq!((s.games, s.streak), (5, -1));
+        let pl = &s.playlists["11"];
+        assert_eq!((pl.name.as_str(), pl.wins, pl.losses), ("Ranked 2v2", 3, 2));
+        // Sérialisation attendue par l'interface (camelCase)
+        let v = serde_json::to_value(s).unwrap();
+        assert!(v.get("bestStreak").is_some() && v.get("startedAt").is_some());
+    }
+
+    // Reconnexion automatique
+    listener.set_nonblocking(false).unwrap();
+    let (_again, _) = listener.accept().unwrap();
+}
+
+#[test]
+fn filtre_ranked() {
+    let mut t = Tracker::new(Session::default());
+    let r = CountRules { mode: "ranked".into(), ..rules() };
+    let mut casual = tick("C1", "");
+    casual["Game"]["PlaylistId"] = json!(2);
+    for e in ["MatchCreated", "RoundStarted"] { t.handle(e, &json!({ "MatchGuid": "C1" }), None, &r); }
+    t.handle("UpdateState", &casual, None, &r);
+    t.handle("MatchEnded", &json!({ "MatchGuid": "C1", "WinnerTeamNum": 0 }), None, &r);
+    assert_eq!(t.session.games, 0);
+}
+
+#[test]
+fn parametres_fusion_et_valeurs_invalides() {
+    let path = std::env::temp_dir().join(format!("rlss-settings-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let mut store = SettingsStore::load(path.clone());
+    assert_eq!(store.data.server.port, 5177);
+    assert!(store.update(json!({ "overlay": { "scale": 1.25, "fields": ["streak"] }, "statsApi": { "packetSendRate": 30 } })));
+    assert!(!store.update(json!({ "server": { "port": "pas un nombre" } })), "valeur invalide refusée");
+    let reloaded = SettingsStore::load(path.clone());
+    assert_eq!(reloaded.data.overlay.scale, 1.25);
+    assert_eq!(reloaded.data.overlay.fields, vec!["streak"]);
+    assert_eq!(reloaded.data.overlay.position, "top-left", "le reste est conservé");
+    assert_eq!(reloaded.data.stats_api.packet_send_rate, 30);
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn serveur_obs() {
+    let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let web = WebServer::start(port, Arc::new(|| json!({ "session": { "wins": 3 } })));
+    std::thread::sleep(Duration::from_millis(100));
+    assert!(web.error().is_none());
+
+    let get = |path: &str| {
+        let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        s.write_all(format!("GET {path} HTTP/1.1\r\nHost: localhost\r\n\r\n").as_bytes()).unwrap();
+        s
+    };
+    let mut page = String::new();
+    get("/overlay").read_to_string(&mut page).unwrap();
+    assert!(page.starts_with("HTTP/1.1 200") && page.contains("EventSource"));
+
+    let mut events = get("/events");
+    events.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+    let mut buf = [0u8; 4096];
+    let mut got = String::new();
+    while !got.contains("\"wins\":3") {
+        let n = events.read(&mut buf).unwrap();
+        got.push_str(&String::from_utf8_lossy(&buf[..n]));
+    }
+    std::thread::sleep(Duration::from_millis(50));
+    web.broadcast(&json!({ "session": { "wins": 4 } }));
+    let mut got = String::new();
+    while !got.contains("\"wins\":4") {
+        let n = events.read(&mut buf).unwrap();
+        got.push_str(&String::from_utf8_lossy(&buf[..n]));
+    }
+
+    let taken = WebServer::start(port, Arc::new(|| json!({})));
+    assert!(taken.error().unwrap().contains("déjà utilisé"));
+}
