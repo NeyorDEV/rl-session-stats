@@ -163,10 +163,18 @@
     <section id="sec-player">
       <h2>Joueur</h2>
       <p id="detected"></p>
-      <label class="stack">Identifiant à suivre (optionnel)
-        <input type="text" id="primaryId" placeholder="Epic|xxxxxxxx|0 ou Steam|xxxxxxxx|0" spellcheck="false">
+
+      <h3>Plateforme du joueur</h3>
+      <div class="segmented" id="playerPlatform">
+        <button type="button" data-value="epic">Epic Games</button>
+        <button type="button" data-value="steam">Steam</button>
+        <button type="button" data-value="">Détection auto</button>
+      </div>
+
+      <label class="stack" style="margin-top: 12px;">Pseudo en jeu
+        <input type="text" id="customName" placeholder="Cochez d'abord Epic ou Steam ci-dessus" spellcheck="false" disabled>
       </label>
-      <p class="hint">Laisse vide : ton joueur est détecté automatiquement au premier match. Renseigne-le seulement si la détection se trompe.</p>
+      <p class="hint">Cochez Epic ou Steam pour débloquer la saisie de votre pseudo en jeu. En mode « Détection auto », le joueur est reconnu automatiquement dès votre première partie.</p>
     </section>
 
     <section id="sec-obs">

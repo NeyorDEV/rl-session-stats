@@ -64,6 +64,8 @@ impl Default for CountingSettings {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PlayerSettings {
+    pub platform: String,
+    pub custom_name: String,
     pub primary_id: String,
     pub detected_id: String,
     pub detected_name: String,

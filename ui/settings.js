@@ -207,7 +207,13 @@ function renderForm() {
   $('resetOnStart').checked = !!c.resetOnStart;
 
   setPressed($('rate'), S.settings.statsApi.packetSendRate);
-  setValue($('primaryId'), S.settings.player.primaryId);
+
+  const pl = S.settings.player || {};
+  setPressed($('playerPlatform'), pl.platform || '');
+  const hasPlatform = !!pl.platform;
+  $('customName').disabled = !hasPlatform;
+  $('customName').placeholder = hasPlatform ? 'Entrez votre pseudo exact...' : 'Cochez d\'abord Epic ou Steam ci-dessus';
+  setValue($('customName'), pl.customName || '');
 
   $('obsUrl').textContent = S.obsUrl;
   setValue($('serverPort'), S.settings.server.port);
@@ -353,7 +359,25 @@ function bind() {
   });
   $('goToApi').addEventListener('click', () => $('sec-api').scrollIntoView({ behavior: 'smooth' }));
 
-  $('primaryId').addEventListener('change', (e) => save({ player: { primaryId: e.target.value.trim() } }));
+  $('playerPlatform').addEventListener('click', (e) => {
+    const v = e.target.closest('button')?.dataset.value;
+    if (v !== undefined) {
+      const hasPlat = !!v;
+      $('customName').disabled = !hasPlat;
+      $('customName').placeholder = hasPlat ? 'Entrez votre pseudo exact...' : 'Cochez d\'abord Epic ou Steam ci-dessus';
+      if (!hasPlat) {
+        $('customName').value = '';
+        save({ player: { platform: '', customName: '' } });
+      } else {
+        save({ player: { platform: v } });
+        $('customName').focus();
+      }
+    }
+  });
+
+  $('customName').addEventListener('change', (e) => {
+    save({ player: { customName: e.target.value.trim() } });
+  });
 
   $('copyUrl').addEventListener('click', async () => { await app.copy(S.obsUrl); flashSaved('Copié'); });
   $('openObs').addEventListener('click', () => app.openObsFolder());

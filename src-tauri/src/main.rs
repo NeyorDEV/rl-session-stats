@@ -62,8 +62,12 @@ impl Core {
 
     fn identity(&self) -> Option<String> {
         let p = &self.store.data.player;
-        let id = if p.primary_id.is_empty() { &p.detected_id } else { &p.primary_id };
-        (!id.is_empty()).then(|| id.clone())
+        if !p.custom_name.is_empty() {
+            Some(format!("NAME:{}|{}", p.platform, p.custom_name))
+        } else {
+            let id = if p.primary_id.is_empty() { &p.detected_id } else { &p.primary_id };
+            (!id.is_empty()).then(|| id.clone())
+        }
     }
 
     fn log(&self, message: &str) {

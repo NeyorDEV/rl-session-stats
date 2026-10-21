@@ -514,10 +514,23 @@ impl Tracker {
 /// Retrouve le joueur local : par identifiant connu, sinon via la caméra
 /// (quand tu joues, la caméra suit ta propre voiture).
 fn identify(players: &[Value], g: &Value, identity: Option<&str>, e: &mut Effects) -> Option<Me> {
-    let mut found = identity
-        .filter(|id| !id.is_empty())
-        .and_then(|id| players.iter().find(|p| str_of(p, "PrimaryId") == Some(id)));
+    let mut found = None;
     let mut via_camera = false;
+
+    if let Some(id_str) = identity.filter(|s| !s.is_empty()) {
+        if let Some(rest) = id_str.strip_prefix("NAME:") {
+            let (plat, pseudo) = rest.split_once('|').unwrap_or(("", rest));
+            found = players.iter().find(|p| {
+                let p_name = str_of(p, "Name").unwrap_or("");
+                let p_id = str_of(p, "PrimaryId").unwrap_or("");
+                let name_match = p_name.eq_ignore_ascii_case(pseudo);
+                let plat_match = plat.is_empty() || p_id.to_lowercase().starts_with(&plat.to_lowercase());
+                name_match && plat_match
+            });
+        } else {
+            found = players.iter().find(|p| str_of(p, "PrimaryId") == Some(id_str));
+        }
+    }
 
     if found.is_none() && bool_of(g, "bHasTarget") && !bool_of(g, "bReplay") {
         if let Some(target) = g.get("Target").and_then(|t| str_of(t, "Name")) {
