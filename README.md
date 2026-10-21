@@ -44,9 +44,12 @@ It exclusively communicates through Rocket League's **official native local tele
   * **Vertical Card**: Compact side-widget format.
   * **Minimalist**: Pure text & icon layout with shadow effects.
 * **📈 MMR & Rank Tracking**:
-  * Calculates rank tier (Bronze I through Supersonic Legend) and division in real-time.
+  * **Accurate Official Brackets**: Exact MMR curves for 1v1, 2v2, and 3v3 (e.g. 1656 ELO = Grand Champion II Div. 3).
+  * **Focused Playlist Selector**: Focus on 1v1 (Duel), 2v2 (Doubles), or 3v3 (Standard) with instant tier & division recalculation.
+  * **HD Modern Rank Icons**: Authentic transparent 256×256 post-F2P badges (including ruby GC1, GC2, GC3, and Supersonic Legend).
   * Live session MMR and match delta updates (+9.0 / -9.0 average per ranked match).
   * Custom starting MMR and custom delta values configurable from the settings.
+  * Direct 1-click link to view your live profile on Rocket League Tracker.
 * **👤 Player Platform Selector (Epic Games / Steam)**:
   * Select your platform (Epic or Steam) to unlock your in-game username input.
   * Direct pseudo matching without having to look up complicated account IDs.
