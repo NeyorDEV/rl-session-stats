@@ -5,15 +5,18 @@
 <title>RL Session Stats - Overlay</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@500;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@500;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root {
-    --panel: rgba(10, 22, 40, 0.84);
-    --edge: rgba(120, 170, 255, 0.2);
+    --panel: rgba(10, 20, 36, 0.90);
+    --edge: rgba(100, 160, 255, 0.25);
     --text: #eef3ff;
-    --muted: #93a7c9;
-    --blue: #36a9ff;
-    --orange: #ff8a2a;
+    --muted: #9bb1d4;
+    --blue: #2db0ff;
+    --orange: #ff6a00;
+    --green: #2ecc71;
+    --gold: #ffc107;
+    --purple: #b388ff;
   }
   html, body { margin: 0; background: transparent; overflow: hidden; }
   body {
@@ -22,6 +25,138 @@
     padding: 8px 14px;
     display: inline-block;
   }
+
+  /* --- Styles communs & animation --- */
+  .pulse { animation: pulseAnim .6s ease-out; }
+  @keyframes pulseAnim {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+
+  /* =========================================================================
+     THÈME 1 : ROCKETSTATS (Classic Card)
+     ========================================================================= */
+  .theme-rocketstats {
+    background: linear-gradient(135deg, rgba(14, 25, 45, 0.94) 0%, rgba(8, 16, 30, 0.96) 100%);
+    border: 1px solid rgba(80, 150, 255, 0.35);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    transform-origin: 0 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .theme-rocketstats::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--blue) 0%, var(--purple) 50%, var(--orange) 100%);
+  }
+
+  .rs-rank-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-right: 14px;
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .rs-rank-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 0 8px rgba(45, 176, 255, 0.5));
+  }
+  .rs-rank-info {
+    display: flex;
+    flex-direction: column;
+  }
+  .rs-mode-tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--blue);
+    text-transform: uppercase;
+  }
+  .rs-rank-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .rs-rank-division {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .rs-mmr-section {
+    display: flex;
+    flex-direction: column;
+    padding-right: 14px;
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+    min-width: 90px;
+  }
+  .rs-mmr-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.6px;
+  }
+  .rs-mmr-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .rs-mmr-value {
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+  }
+  .rs-mmr-change {
+    font-size: 13px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .rs-mmr-change.up { color: #a3ffc2; background: rgba(46, 204, 113, 0.22); }
+  .rs-mmr-change.down { color: #ffad82; background: rgba(255, 106, 0, 0.22); }
+
+  .rs-stats-grid {
+    display: flex;
+    gap: 12px;
+  }
+  .rs-stat-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .rs-stat-box .rs-lbl {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+  .rs-stat-box .rs-val {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .rs-stat-box.wins .rs-val { color: var(--blue); }
+  .rs-stat-box.losses .rs-val { color: var(--orange); }
+  .rs-stat-box.streak .rs-val { color: var(--gold); }
+
+  /* =========================================================================
+     THÈME 2 : MODERNE / RUBAN (Cellules biseautées améliorées)
+     ========================================================================= */
   .hud { display: flex; gap: 4px; width: max-content; align-items: stretch; transform-origin: 0 0; }
   .hud.column { flex-direction: column; align-items: stretch; }
   .hud:empty { display: none; }
@@ -30,50 +165,171 @@
     transform: skewX(-14deg);
     background: var(--panel);
     border: 1px solid var(--edge);
-    padding: 3px 15px 5px;
+    padding: 4px 14px 6px;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   }
-  .in {
+  .cell .in {
     transform: skewX(14deg);
     display: flex;
     flex-direction: column;
     align-items: center;
   }
-  .column .in { flex-direction: row; justify-content: space-between; gap: 18px; min-width: 150px; }
+  .cell.rank-cell .in {
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+  }
+  .column .in { flex-direction: row; justify-content: space-between; gap: 18px; min-width: 160px; }
   .column .label { order: -1; }
 
   .value {
     font-weight: 800;
-    font-size: 28px;
+    font-size: 26px;
     line-height: 1.05;
     font-variant-numeric: tabular-nums;
   }
-  .label { font-weight: 500; font-size: 12px; color: var(--muted); white-space: nowrap; }
-  .column .label { font-size: 14px; align-self: center; }
+  .label { font-weight: 600; font-size: 11px; color: var(--muted); white-space: nowrap; text-transform: uppercase; }
+  .column .label { font-size: 13px; align-self: center; }
 
   .cell.wins { border-bottom: 3px solid var(--blue); }
   .cell.losses { border-bottom: 3px solid var(--orange); }
+  .cell.mmr { border-bottom: 3px solid var(--purple); }
   .wins .value { color: var(--blue); }
   .losses .value { color: var(--orange); }
+  .mmr .value { color: #f0f4ff; }
+  .mmr-change .value.up { color: var(--green); }
+  .mmr-change .value.down { color: var(--orange); }
 
-  .cell.streak { padding-inline: 20px; transition: background-color .4s, border-color .4s; }
-  .cell.streak .value { font-size: 34px; }
+  .cell.streak { padding-inline: 18px; transition: background-color .4s, border-color .4s; }
+  .cell.streak .value { font-size: 30px; }
   .cell.streak.up { background: rgba(18, 88, 168, 0.92); border-color: var(--blue); }
   .cell.streak.down { background: rgba(168, 68, 10, 0.92); border-color: var(--orange); }
-  .cell.streak.pulse { animation: pulse .6s ease-out; }
-  @keyframes pulse {
-    0% { transform: skewX(-14deg) scale(1); }
-    35% { transform: skewX(-14deg) scale(1.14); }
-    100% { transform: skewX(-14deg) scale(1); }
-  }
-  @media (prefers-reduced-motion: reduce) { .cell.streak.pulse { animation: none; } }
 
-  body.offline .hud { opacity: .5; }
+  /* =========================================================================
+     THÈME 3 : CARTE VERTICALE (Compact Card)
+     ========================================================================= */
+  .theme-card {
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    border-radius: 8px;
+    padding: 12px 16px;
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    transform-origin: 0 0;
+  }
+  .theme-card .tc-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 8px;
+  }
+  .theme-card .tc-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .theme-card .tc-row b { font-variant-numeric: tabular-nums; }
+
+  /* =========================================================================
+     THÈME 4 : MINIMALISTE (No card background)
+     ========================================================================= */
+  .theme-minimal {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    transform-origin: 0 0;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.7);
+  }
+  .theme-minimal .m-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .theme-minimal .m-val { font-size: 26px; font-weight: 900; }
+  .theme-minimal .m-lbl { font-size: 12px; font-weight: 700; color: var(--muted); }
+
+  body.offline { opacity: .45; }
 </style>
 </head>
 <body>
-<div class="hud" id="hud"></div>
+<div id="container"></div>
+
 <script>
+  // --- Générateur d'icônes SVG pour les rangs Rocket League ---
+  function getRankBadgeSvg(tier, size = 38) {
+    // tier: 0=Unranked, 1..3=Bronze, 4..6=Silver, 7..9=Gold, 10..12=Platinum, 13..15=Diamond, 16..18=Champ, 19..21=GC, 22=SSL
+    tier = Number(tier) || 0;
+    let mainColor = '#00c3ff';
+    let secColor = '#0055ff';
+    let symbol = 'diamond';
+
+    if (tier === 0) {
+      mainColor = '#8fa3b8'; secColor = '#475569'; symbol = 'shield';
+    } else if (tier <= 3) {
+      mainColor = '#cd7f32'; secColor = '#804a1b'; symbol = 'bronze';
+    } else if (tier <= 6) {
+      mainColor = '#d9e2ec'; secColor = '#738a9c'; symbol = 'silver';
+    } else if (tier <= 9) {
+      mainColor = '#ffc107'; secColor = '#b28900'; symbol = 'gold';
+    } else if (tier <= 12) {
+      mainColor = '#22d3ee'; secColor = '#0891b2'; symbol = 'plat';
+    } else if (tier <= 15) {
+      mainColor = '#38bdf8'; secColor = '#0284c7'; symbol = 'diamond';
+    } else if (tier <= 18) {
+      mainColor = '#c084fc'; secColor = '#7e22ce'; symbol = 'champ';
+    } else if (tier <= 21) {
+      mainColor = '#f43f5e'; secColor = '#be123c'; symbol = 'gc';
+    } else {
+      mainColor = '#ffffff'; secColor = '#e0e7ff'; symbol = 'ssl';
+    }
+
+    const uid = 'rk_' + tier;
+    return `
+      <svg viewBox="0 0 50 50" width="${size}" height="${size}" style="filter: drop-shadow(0 0 6px ${mainColor}88);">
+        <defs>
+          <linearGradient id="${uid}_g" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="${mainColor}"/>
+            <stop offset="100%" stop-color="${secColor}"/>
+          </linearGradient>
+        </defs>
+        ${tier === 0 ? `
+          <circle cx="25" cy="25" r="20" fill="none" stroke="url(#${uid}_g)" stroke-width="3"/>
+          <text x="25" y="32" text-anchor="middle" font-size="20" font-weight="800" fill="${mainColor}">?</text>
+        ` : tier === 22 ? `
+          <!-- SSL Star -->
+          <polygon points="25,2 31,17 47,19 35,30 38,46 25,38 12,46 15,30 3,19 19,17" fill="url(#${uid}_g)"/>
+          <polygon points="25,8 29,19 40,20 32,28 34,40 25,33 16,40 18,28 10,20 21,19" fill="#0f172a"/>
+          <circle cx="25" cy="25" r="5" fill="${mainColor}"/>
+        ` : `
+          <!-- Rank Shield / Emblem -->
+          <polygon points="25,4 44,14 38,38 25,46 12,38 6,14" fill="url(#${uid}_g)"/>
+          <polygon points="25,8 40,16 35,35 25,42 15,35 10,16" fill="#0b1324"/>
+          ${tier >= 16 ? `
+            <!-- Champ / GC wings / horns -->
+            <polygon points="25,12 36,20 33,33 25,38 17,33 14,20" fill="url(#${uid}_g)"/>
+            <polygon points="25,18 31,23 25,34 19,23" fill="#0b1324"/>
+          ` : `
+            <!-- Standard Jewel -->
+            <polygon points="25,15 33,25 25,35 17,25" fill="url(#${uid}_g)"/>
+          `}
+        `}
+      </svg>
+    `;
+  }
+
   const FIELDS = {
+    rank: ['Rang', (s) => (s.rankName || 'Unranked') + (s.division ? ' D' + s.division : '')],
+    mmr: ['MMR', (s) => Number(s.currentMmr || 0).toFixed(1)],
+    mmrChange: ['MMR Match', (s) => (s.lastMatchMmrChange >= 0 ? '+' : '') + Number(s.lastMatchMmrChange || 0).toFixed(1)],
+    mmrSession: ['MMR Session', (s) => (s.sessionMmrChange >= 0 ? '+' : '') + Number(s.sessionMmrChange || 0).toFixed(1)],
+    gamemode: ['Mode', (s) => (s.recent && s.recent.length ? s.recent[s.recent.length - 1].playlist : 'Ranked')],
     wins: ['Victoires', (s) => s.wins],
     losses: ['Défaites', (s) => s.losses],
     streak: ['Streak', (s) => (s.streak > 0 ? '+' : '') + s.streak],
@@ -89,74 +345,176 @@
   };
 
   const tauri = window.__TAURI__;
-  const isApp = !!tauri; // dans l'appli (fenêtre au-dessus du jeu) ou dans OBS
+  const isApp = !!tauri;
   const params = new URLSearchParams(location.search);
-  // Pour OBS, on peut forcer un affichage : /overlay?show=wins,losses&layout=column
   const forcedFields = params.get('show');
   const forcedLayout = params.get('layout');
+  const forcedTheme = params.get('theme');
 
-  const hud = document.getElementById('hud');
-  let cells = {};
-  let signature = '';
+  const container = document.getElementById('container');
+  let currentTheme = '';
+  let lastMmrValue = null;
+  let lastStreakValue = null;
 
-  function build(fields, layout) {
-    hud.className = 'hud ' + (layout === 'column' ? 'column' : 'row');
-    hud.innerHTML = '';
-    cells = {};
+  function renderRocketStatsTheme(s, display) {
+    const mmrVal = Number(s.currentMmr || 0).toFixed(1);
+    const deltaVal = Number(s.lastMatchMmrChange || 0);
+    const deltaStr = (deltaVal >= 0 ? '+' : '') + deltaVal.toFixed(1);
+    const streakStr = (s.streak > 0 ? '+' : '') + s.streak;
+    const modeName = s.recent && s.recent.length ? s.recent[s.recent.length - 1].playlist : 'COMPETITIVE';
+
+    container.innerHTML = `
+      <div class="theme-rocketstats" id="rsHUD">
+        <div class="rs-rank-section">
+          <div class="rs-rank-icon">
+            ${getRankBadgeSvg(s.rankTier, 42)}
+          </div>
+          <div class="rs-rank-info">
+            <span class="rs-mode-tag">${modeName}</span>
+            <span class="rs-rank-title">${s.rankName || 'Unranked'}</span>
+            <span class="rs-rank-division">Division ${s.division || 1}</span>
+          </div>
+        </div>
+        <div class="rs-mmr-section">
+          <span class="rs-mmr-label">MMR</span>
+          <div class="rs-mmr-row">
+            <span class="rs-mmr-value">${mmrVal}</span>
+            <span class="rs-mmr-change ${deltaVal >= 0 ? 'up' : 'down'}">${deltaStr}</span>
+          </div>
+        </div>
+        <div class="rs-stats-grid">
+          <div class="rs-stat-box wins">
+            <span class="rs-lbl">WINS</span>
+            <span class="rs-val">${s.wins}</span>
+          </div>
+          <div class="rs-stat-box losses">
+            <span class="rs-lbl">LOSSES</span>
+            <span class="rs-val">${s.losses}</span>
+          </div>
+          <div class="rs-stat-box streak">
+            <span class="rs-lbl">STREAK</span>
+            <span class="rs-val">${streakStr}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderModernTheme(s, display, fields, layout) {
+    let html = `<div class="hud ${layout === 'column' ? 'column' : 'row'}" id="modernHUD">`;
     for (const key of fields) {
-      const cell = document.createElement('div');
-      cell.className = 'cell ' + key;
-      cell.innerHTML = '<div class="in"><span class="value">0</span><span class="label"></span></div>';
-      cell.querySelector('.label').textContent = FIELDS[key][0];
-      hud.appendChild(cell);
-      cells[key] = { cell, value: cell.querySelector('.value') };
+      if (key === 'rank') {
+        html += `
+          <div class="cell rank-cell">
+            <div class="in">
+              ${getRankBadgeSvg(s.rankTier, 28)}
+              <div>
+                <div class="value" style="font-size: 18px;">${s.rankName || 'Unranked'}</div>
+                <div class="label">Div. ${s.division || 1}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        const val = FIELDS[key][1](s);
+        let extraClass = key;
+        if (key === 'streak') {
+          if (s.streak > 0) extraClass += ' up';
+          else if (s.streak < 0) extraClass += ' down';
+        } else if (key === 'mmrChange') {
+          extraClass += s.lastMatchMmrChange >= 0 ? ' up' : ' down';
+        }
+        html += `
+          <div class="cell ${extraClass}">
+            <div class="in">
+              <span class="value">${val}</span>
+              <span class="label">${FIELDS[key][0]}</span>
+            </div>
+          </div>
+        `;
+      }
     }
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  function renderCardTheme(s, display) {
+    const streakStr = (s.streak > 0 ? '+' : '') + s.streak;
+    container.innerHTML = `
+      <div class="theme-card" id="cardHUD">
+        <div class="tc-header">
+          ${getRankBadgeSvg(s.rankTier, 32)}
+          <div>
+            <div style="font-size: 16px; font-weight: 800;">${s.rankName || 'Unranked'}</div>
+            <div style="font-size: 12px; color: var(--muted);">Division ${s.division || 1}</div>
+          </div>
+        </div>
+        <div class="tc-row"><span>MMR</span><b>${Number(s.currentMmr || 0).toFixed(1)}</b></div>
+        <div class="tc-row"><span>Victoires</span><b style="color:var(--blue);">${s.wins}</b></div>
+        <div class="tc-row"><span>Défaites</span><b style="color:var(--orange);">${s.losses}</b></div>
+        <div class="tc-row"><span>Streak</span><b style="color:var(--gold);">${streakStr}</b></div>
+      </div>
+    `;
+  }
+
+  function renderMinimalTheme(s, display) {
+    const streakStr = (s.streak > 0 ? '+' : '') + s.streak;
+    container.innerHTML = `
+      <div class="theme-minimal" id="minHUD">
+        <div class="m-item">${getRankBadgeSvg(s.rankTier, 28)}<span class="m-val">${s.rankName || 'Unranked'}</span></div>
+        <div class="m-item"><span class="m-lbl">MMR</span><span class="m-val">${Number(s.currentMmr || 0).toFixed(1)}</span></div>
+        <div class="m-item"><span class="m-lbl">W</span><span class="m-val" style="color:var(--blue);">${s.wins}</span></div>
+        <div class="m-item"><span class="m-lbl">L</span><span class="m-val" style="color:var(--orange);">${s.losses}</span></div>
+        <div class="m-item"><span class="m-lbl">S</span><span class="m-val" style="color:var(--gold);">${streakStr}</span></div>
+      </div>
+    `;
   }
 
   function render(state) {
     const display = state.display || {};
-    const fields = (forcedFields ? forcedFields.split(',') : display.fields || ['wins', 'losses', 'streak'])
+    const theme = forcedTheme || display.theme || 'rocketstats';
+    const fields = (forcedFields ? forcedFields.split(',') : display.fields || ['rank', 'mmr', 'wins', 'losses', 'streak'])
       .filter((k) => FIELDS[k]);
     const layout = forcedLayout || display.layout || 'row';
-    const sig = fields.join(',') + '|' + layout;
-    if (sig !== signature) { signature = sig; build(fields, layout); }
+    const s = state.session || {};
+
+    if (theme === 'rocketstats') {
+      renderRocketStatsTheme(s, display);
+    } else if (theme === 'card') {
+      renderCardTheme(s, display);
+    } else if (theme === 'minimal') {
+      renderMinimalTheme(s, display);
+    } else {
+      renderModernTheme(s, display, fields, layout);
+    }
+
+    const scale = Number(display.scale) || 1.0;
+    const opacity = Number(display.opacity) !== undefined ? Number(display.opacity) : 0.92;
+
+    container.style.transform = `scale(${scale})`;
+    container.style.transformOrigin = '0 0';
+    container.style.opacity = String(opacity);
 
     if (isApp) {
-      hud.style.transform = `scale(${Number(display.scale) || 1})`;
       document.body.style.visibility = display.enabled === false ? 'hidden' : 'visible';
     }
 
-    const s = state.session;
-    for (const key of fields) {
-      const { cell, value } = cells[key];
-      const next = String(FIELDS[key][1](s));
-      if (key === 'streak') {
-        cell.classList.toggle('up', s.streak > 0);
-        cell.classList.toggle('down', s.streak < 0);
-        if (value.textContent !== next && value.dataset.ready) {
-          cell.classList.remove('pulse');
-          void cell.offsetWidth;
-          cell.classList.add('pulse');
-        }
-        value.dataset.ready = '1';
-      }
-      value.textContent = next;
-    }
     reportSize();
   }
 
-  // Dans l'appli : indique au programme la taille à donner à la fenêtre.
   function reportSize() {
     if (!isApp) return;
     requestAnimationFrame(() => {
-      const r = hud.getBoundingClientRect();
-      tauri.core.invoke('overlay_size', { w: r.right + 16, h: r.bottom + 10 });
+      const el = container.firstElementChild;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      tauri.core.invoke('overlay_size', { w: r.width + 30, h: r.height + 20 });
     });
   }
 
   if (isApp) {
     document.body.classList.add('app');
-    if ('ResizeObserver' in window) new ResizeObserver(reportSize).observe(hud);
+    if ('ResizeObserver' in window) new ResizeObserver(reportSize).observe(container);
     if (document.fonts) document.fonts.ready.then(reportSize);
     tauri.core.invoke('overlay_state').then(render);
     tauri.event.listen('overlay', (e) => render(e.payload));

@@ -14,19 +14,27 @@ pub struct OverlaySettings {
     pub offset_x: f64,
     pub offset_y: f64,
     pub scale: f64,
+    pub opacity: f64,
     pub layout: String,
+    pub theme: String,
+    pub starting_mmr: f64,
+    pub mmr_delta: f64,
 }
 
 impl Default for OverlaySettings {
     fn default() -> Self {
         OverlaySettings {
             enabled: true,
-            fields: ["wins", "losses", "streak", "winrate"].map(String::from).to_vec(),
+            fields: ["rank", "mmr", "wins", "losses", "streak"].map(String::from).to_vec(),
             position: "top-left".into(),
             offset_x: 24.0,
             offset_y: 24.0,
             scale: 1.0,
+            opacity: 0.92,
             layout: "row".into(),
+            theme: "rocketstats".into(),
+            starting_mmr: 855.0,
+            mmr_delta: 9.0,
         }
     }
 }

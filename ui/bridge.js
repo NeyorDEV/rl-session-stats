@@ -21,6 +21,7 @@
     getState: () => invoke('get_state'),
     save: (patch) => invoke('save_settings', { patch }),
     reset: () => invoke('reset_session_cmd'),
+    setMmr: (mmr) => invoke('set_mmr_cmd', { mmr }),
     statsApiStatus: () => invoke('statsapi_status'),
     detectInstall: () => invoke('statsapi_detect'),
     chooseInstall: () => invoke('statsapi_choose'),

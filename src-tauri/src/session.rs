@@ -38,6 +38,51 @@ pub fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
 }
 
+/// Calcule le rang, la division et le tier numérique (0 à 22) en fonction du MMR.
+pub fn calculate_rank(mmr: f64) -> (&'static str, i64, i64) {
+    if mmr <= 0.0 {
+        return ("Unranked", 1, 0);
+    }
+    // Grille standard Rocket League (2v2 / 3v3)
+    let brackets: &[(&str, f64, f64, i64)] = &[
+        ("Bronze I", 0.0, 175.0, 1),
+        ("Bronze II", 175.0, 235.0, 2),
+        ("Bronze III", 235.0, 295.0, 3),
+        ("Silver I", 295.0, 355.0, 4),
+        ("Silver II", 355.0, 415.0, 5),
+        ("Silver III", 415.0, 475.0, 6),
+        ("Gold I", 475.0, 535.0, 7),
+        ("Gold II", 535.0, 595.0, 8),
+        ("Gold III", 595.0, 655.0, 9),
+        ("Platinum I", 655.0, 735.0, 10),
+        ("Platinum II", 735.0, 815.0, 11),
+        ("Platinum III", 815.0, 895.0, 12),
+        ("Diamond I", 895.0, 995.0, 13),
+        ("Diamond II", 995.0, 1095.0, 14),
+        ("Diamond III", 1095.0, 1195.0, 15),
+        ("Champion I", 1195.0, 1315.0, 16),
+        ("Champion II", 1315.0, 1435.0, 17),
+        ("Champion III", 1435.0, 1555.0, 18),
+        ("Grand Champion I", 1555.0, 1715.0, 19),
+        ("Grand Champion II", 1715.0, 1875.0, 20),
+        ("Grand Champion III", 1875.0, 2035.0, 21),
+    ];
+
+    if mmr >= 2035.0 {
+        return ("Supersonic Legend", 1, 22);
+    }
+
+    for &(name, min, max, tier) in brackets {
+        if mmr < max {
+            let width = (max - min) / 4.0;
+            let div = 1 + ((mmr - min) / width).floor().clamp(0.0, 3.0) as i64;
+            return (name, div, tier);
+        }
+    }
+
+    ("Supersonic Legend", 1, 22)
+}
+
 // ---------------------------------------------------------------------------
 // Données de session (sérialisées en camelCase pour l'interface)
 // ---------------------------------------------------------------------------
@@ -63,6 +108,8 @@ pub struct PlaylistStats {
     pub wins: i64,
     pub losses: i64,
     pub streak: i64,
+    pub mmr: f64,
+    pub session_mmr_change: f64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
@@ -76,6 +123,8 @@ pub struct RecentMatch {
     pub assists: i64,
     pub saves: i64,
     pub demos: i64,
+    pub mmr_change: f64,
+    pub mmr_after: f64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -91,10 +140,17 @@ pub struct Session {
     pub totals: Totals,
     pub playlists: BTreeMap<String, PlaylistStats>,
     pub recent: Vec<RecentMatch>,
+    pub current_mmr: f64,
+    pub session_mmr_change: f64,
+    pub last_match_mmr_change: f64,
+    pub rank_name: String,
+    pub division: i64,
+    pub rank_tier: i64,
 }
 
 impl Default for Session {
     fn default() -> Self {
+        let (rank_name, division, rank_tier) = calculate_rank(855.0);
         Session {
             started_at: now_ms(),
             games: 0,
@@ -106,6 +162,12 @@ impl Default for Session {
             totals: Totals::default(),
             playlists: BTreeMap::new(),
             recent: Vec::new(),
+            current_mmr: 855.0,
+            session_mmr_change: 0.0,
+            last_match_mmr_change: 0.0,
+            rank_name: rank_name.to_string(),
+            division,
+            rank_tier,
         }
     }
 }
@@ -125,6 +187,19 @@ pub struct CountRules {
     pub mode: String,
     pub playlists: Vec<i64>,
     pub count_leave_as_loss: bool,
+    pub mmr_delta: f64,
+}
+
+impl Default for CountRules {
+    fn default() -> Self {
+        CountRules {
+            online_only: true,
+            mode: "all".into(),
+            playlists: vec![],
+            count_leave_as_loss: true,
+            mmr_delta: 9.0,
+        }
+    }
 }
 
 impl CountRules {
@@ -217,7 +292,24 @@ impl Tracker {
     }
 
     pub fn reset(&mut self) {
-        self.session = Session::default();
+        let current_mmr = self.session.current_mmr;
+        let mut s = Session::default();
+        if current_mmr > 0.0 {
+            s.current_mmr = current_mmr;
+            let (name, div, tier) = calculate_rank(current_mmr);
+            s.rank_name = name.to_string();
+            s.division = div;
+            s.rank_tier = tier;
+        }
+        self.session = s;
+    }
+
+    pub fn set_mmr(&mut self, mmr: f64) {
+        self.session.current_mmr = mmr.max(0.0);
+        let (name, div, tier) = calculate_rank(self.session.current_mmr);
+        self.session.rank_name = name.to_string();
+        self.session.division = div;
+        self.session.rank_tier = tier;
     }
 
     pub fn handle(&mut self, event: &str, d: &Value, identity: Option<&str>, rules: &CountRules) -> Effects {
@@ -368,6 +460,15 @@ impl Tracker {
         t.score += int_of(st, "Score");
         t.deaths += m.deaths;
 
+        let delta = if won { rules.mmr_delta } else { -rules.mmr_delta };
+        s.current_mmr = (s.current_mmr + delta).max(0.0);
+        s.session_mmr_change += delta;
+        s.last_match_mmr_change = delta;
+        let (r_name, r_div, r_tier) = calculate_rank(s.current_mmr);
+        s.rank_name = r_name.to_string();
+        s.division = r_div;
+        s.rank_tier = r_tier;
+
         let key = m.playlist_id.map_or_else(|| "unknown".to_string(), |id| id.to_string());
         let pl = s.playlists.entry(key).or_insert_with(|| PlaylistStats {
             id: m.playlist_id,
@@ -377,6 +478,8 @@ impl Tracker {
         pl.games += 1;
         if won { pl.wins += 1 } else { pl.losses += 1 }
         pl.streak = next_streak(pl.streak, won);
+        pl.mmr = s.current_mmr;
+        pl.session_mmr_change += delta;
 
         s.recent.push(RecentMatch {
             won,
@@ -387,6 +490,8 @@ impl Tracker {
             assists: int_of(st, "Assists"),
             saves: int_of(st, "Saves"),
             demos: int_of(st, "Demos"),
+            mmr_change: delta,
+            mmr_after: s.current_mmr,
         });
         if s.recent.len() > RECENT_MAX {
             let extra = s.recent.len() - RECENT_MAX;
@@ -394,11 +499,13 @@ impl Tracker {
         }
 
         e.logs.push(format!(
-            "{}{} - {} - streak {}",
+            "{}{} - {} - streak {} - MMR: {:.1} ({:+.1})",
             if won { "Victoire" } else { "Défaite" },
             if abandoned { " (abandon)" } else { "" },
             name,
-            s.streak
+            s.streak,
+            s.current_mmr,
+            delta
         ));
         e.session_changed = true;
     }

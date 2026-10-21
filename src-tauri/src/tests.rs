@@ -13,7 +13,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
 fn rules() -> CountRules {
-    CountRules { online_only: true, mode: "all".into(), playlists: vec![], count_leave_as_loss: true }
+    CountRules { online_only: true, mode: "all".into(), playlists: vec![], count_leave_as_loss: true, mmr_delta: 9.0 }
 }
 
 fn tick(guid: &str, winner: &str) -> Value {
@@ -273,4 +273,25 @@ fn serveur_obs() {
 
     let taken = WebServer::start(port, Arc::new(|| json!({})));
     assert!(taken.error().unwrap().contains("déjà utilisé"));
+}
+
+#[test]
+fn mmr_et_calcul_rang() {
+    use crate::session::calculate_rank;
+    let (name, div, tier) = calculate_rank(0.0);
+    assert_eq!((name, div, tier), ("Unranked", 1, 0));
+
+    let (name, div, tier) = calculate_rank(855.0);
+    assert_eq!((name, div, tier), ("Platinum III", 3, 12));
+
+    let (name, div, tier) = calculate_rank(950.0);
+    assert_eq!((name, div, tier), ("Diamond I", 3, 13));
+
+    let (name, div, tier) = calculate_rank(2100.0);
+    assert_eq!((name, div, tier), ("Supersonic Legend", 1, 22));
+
+    let mut tracker = Tracker::new(Session::default());
+    tracker.set_mmr(900.0);
+    assert_eq!(tracker.session.current_mmr, 900.0);
+    assert_eq!(tracker.session.rank_name, "Diamond I");
 }

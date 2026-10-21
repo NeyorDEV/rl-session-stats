@@ -25,6 +25,18 @@
       <button type="button" class="link" id="goToApi">L'activer</button>
     </div>
 
+    <!-- MMR & Rang en session -->
+    <div class="rank-box" id="rankBox">
+      <div class="rank-text">
+        <span class="rank-title" id="sideRankName">Diamond I</span>
+        <span class="rank-sub" id="sideRankDiv">Division 2</span>
+      </div>
+      <div class="mmr-badge">
+        <span id="sideMmr">855.0</span>
+        <small id="sideMmrChange">+0.0</small>
+      </div>
+    </div>
+
     <div class="streak" id="streakBox">
       <span class="streak-value" id="streak">0</span>
       <span class="streak-caption">streak en cours</span>
@@ -57,6 +69,14 @@
       </label>
       <p class="hint">Raccourci : <kbd>Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>O</kbd>. Le jeu doit être en mode « Fenêtré sans bordure ».</p>
 
+      <h3>Thème visuel</h3>
+      <div class="segmented" id="theme">
+        <button type="button" data-value="rocketstats">RocketStats (Classic)</button>
+        <button type="button" data-value="modern">Moderne (Ruban)</button>
+        <button type="button" data-value="card">Carte verticale</button>
+        <button type="button" data-value="minimal">Minimaliste</button>
+      </div>
+
       <h3>Stats affichées</h3>
       <div class="chips" id="fields"></div>
 
@@ -79,12 +99,27 @@
             <label>Marge verticale <input type="number" id="offsetY" step="4"> px</label>
           </div>
           <label class="range">Taille <input type="range" id="scale" min="0.6" max="2" step="0.05"> <output id="scaleOut"></output></label>
+          <label class="range">Opacité <input type="range" id="opacity" min="0.2" max="1" step="0.05"> <output id="opacityOut"></output></label>
           <div class="segmented" id="layout">
             <button type="button" data-value="row">En ligne</button>
             <button type="button" data-value="column">En colonne</button>
           </div>
         </div>
       </div>
+    </section>
+
+    <section id="sec-mmr">
+      <h2>MMR & Rangs (façon RocketStats)</h2>
+      <p class="hint">Compatible EAC : le rang et le MMR sont suivis et calculés automatiquement à chaque victoire / défaite, sans toucher à la mémoire du jeu.</p>
+      <div class="inline">
+        <label>MMR actuel <input type="number" id="startingMmr" step="1"></label>
+        <button type="button" class="secondary" id="applyMmr">Définir le MMR</button>
+      </div>
+      <p class="hint" id="rankPreview" style="margin-top: 4px; font-weight: 600; color: var(--blue);">Rang calculé : Diamant I Div. 2</p>
+      <div class="inline" style="margin-top: 10px;">
+        <label>Gain / perte estimé par match <input type="number" id="mmrDelta" step="0.5" style="width: 80px;"> MMR</label>
+      </div>
+      <p class="hint">Par défaut 9.0 MMR par partie en ranked. Réglable selon vos observations.</p>
     </section>
 
     <section id="sec-counting">

@@ -404,3 +404,43 @@ input[type="text"] { width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* Bloc MMR & Rang dans la colonne latérale */
+.rank-box {
+  background: linear-gradient(135deg, #132847 0%, var(--panel) 100%);
+  border: 1px solid rgba(54, 169, 255, 0.35);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rank-box .rank-text {
+  display: flex;
+  flex-direction: column;
+}
+.rank-box .rank-title {
+  font-weight: 800;
+  font-size: 17px;
+  color: #fff;
+}
+.rank-box .rank-sub {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.rank-box .mmr-badge {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+}
+.rank-box .mmr-badge span {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--blue);
+}
+.rank-box .mmr-badge small {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--good);
+}

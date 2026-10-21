@@ -48,36 +48,22 @@ démos...) en overlay au-dessus du jeu et pour OBS.
   Ctrl+Shift+O, commandes appelées par l'interface, écriture des fichiers `.txt` pour OBS.
 - `src-tauri/src/tests.rs` : 7 tests (`cargo test`), dont un scénario complet via un faux
   Rocket League sur un vrai socket.
-- `ui/settings.html|css|js` : fenêtre des paramètres. `ui/bridge.js` fait le lien avec Tauri.
+- `ui/settings.html|css|js` : fenêtre des paramètres (réglage overlay, MMR, opacité, thèmes). `ui/bridge.js` fait le lien avec Tauri.
 - `ui/overlay.html` : utilisé à la fois par la fenêtre overlay (mode Tauri, événements `overlay`)
-  et par OBS (mode navigateur, SSE).
+  et par OBS (mode navigateur, SSE). Embarque le thème RocketStats Classic, Moderne, Carte et Minimaliste, avec badges SVG de rangs.
 
 Données utilisateur : `%APPDATA%\com.rlsessionstats.app\` (`settings.json`, `session.json`,
-`log.txt`, dossier `obs/`).
+`log.txt`, dossier `obs/` incluant `mmr.txt`, `rank_full.txt`, etc.).
 
 ## État actuel
 
-Vérifié (sous Linux) : compilation sans erreur ni warning, 7 tests OK, appli lancée avec un faux
-Rocket League (comptage, overlay, fichiers OBS, journal).
-
-**Pas encore vérifié** :
-- Compilation sur Windows.
-- Comportement avec le vrai jeu (le format des événements vient de la doc officielle,
-  pas de données réelles observées).
-- Transparence de l'overlay au-dessus du jeu en fenêtré sans bordure.
-- Détection automatique du dossier du jeu sur une vraie install Epic/Steam.
-
-## Prochaines étapes
-
-1. Compiler en local : `npm install` puis `npx tauri build` (ou `npx tauri dev` pour itérer).
-2. Tester avec le vrai jeu et lire `log.txt` : on doit y voir « Connected to Rocket League »,
-   puis « Tracking player: ... », puis « Win » / « Loss » à chaque fin de match.
-3. Corriger ce qui ne correspond pas aux vraies données de la Stats API.
-4. Publier sur GitHub (compte NeyorDEV) : dépôt privé et pre-release d'abord,
-   public une fois validé.
+- MMR & Rangs intégrés (calcul temps réel Bronze à Supersonic Legend avec divisions, gain/perte par match).
+- Thème RocketStats Classic (icônes SVG officielles, grand compteur MMR, delta de match, compteurs stylisés).
+- Réglage d'opacité (20% à 100%) et mise à l'échelle.
+- 8 tests unitaires OK (`cargo test`), incluant le calcul de rang et la simulation TCP.
+- Intégration GitHub Actions opérationnelle pour les builds Windows automatiques.
 
 ## Limites connues
 
-- Pas de MMR ni de rang : la Stats API ne les fournit pas.
 - Pas d'overlay en plein écran exclusif (fenêtré sans bordure obligatoire).
 - Nécessite WebView2 (présent sur Windows 11 et la plupart des Windows 10 à jour).

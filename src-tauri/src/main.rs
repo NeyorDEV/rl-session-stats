@@ -50,11 +50,13 @@ struct Core {
 impl Core {
     fn rules(&self) -> CountRules {
         let c = &self.store.data.counting;
+        let o = &self.store.data.overlay;
         CountRules {
             online_only: c.online_only,
             mode: c.mode.clone(),
             playlists: c.playlists.clone(),
             count_leave_as_loss: c.count_leave_as_loss,
+            mmr_delta: if o.mmr_delta > 0.0 { o.mmr_delta } else { 9.0 },
         }
     }
 
@@ -98,7 +100,7 @@ impl Core {
 
     fn tooltip(&self) -> String {
         let s = &self.tracker.session;
-        format!("RL Session Stats - {}V / {}D - streak {}", s.wins, s.losses, fmt_streak(s.streak))
+        format!("RL Session Stats - {}V / {}D - streak {} - MMR {:.1}", s.wins, s.losses, fmt_streak(s.streak), s.current_mmr)
     }
 
     /// Sauvegarde la session et écrit les fichiers texte pour OBS.
@@ -109,6 +111,10 @@ impl Core {
         }
         let _ = fs::create_dir_all(&self.obs_dir);
         let winrate = if s.games > 0 { format!("{}%", (100 * s.wins + s.games / 2) / s.games) } else { "-".into() };
+        let mmr_str = format!("{:.1}", s.current_mmr);
+        let mmr_change_str = format!("{:+.1}", s.last_match_mmr_change);
+        let mmr_session_str = format!("{:+.1}", s.session_mmr_change);
+        let rank_full = format!("{} Div. {}", s.rank_name, s.division);
         let files = [
             ("games", s.games.to_string()),
             ("wins", s.wins.to_string()),
@@ -122,6 +128,12 @@ impl Core {
             ("shots", s.totals.shots.to_string()),
             ("demos", s.totals.demos.to_string()),
             ("deaths", s.totals.deaths.to_string()),
+            ("mmr", mmr_str),
+            ("mmr_change", mmr_change_str),
+            ("mmr_session", mmr_session_str),
+            ("rank", s.rank_name.clone()),
+            ("division", format!("Div. {}", s.division)),
+            ("rank_full", rank_full),
         ];
         for (name, value) in files {
             let _ = fs::write(self.obs_dir.join(format!("{name}.txt")), value);
@@ -275,6 +287,19 @@ fn save_settings(app: AppHandle, patch: Value) -> Value {
 #[tauri::command]
 fn reset_session_cmd(app: AppHandle) -> Value {
     reset_session(&app);
+    get_state(app)
+}
+
+#[tauri::command]
+fn set_mmr_cmd(app: AppHandle, mmr: f64) -> Value {
+    {
+        let ctx = app.state::<Ctx>();
+        let mut c = ctx.core.lock().unwrap();
+        c.tracker.set_mmr(mmr);
+        c.store.update(json!({ "overlay": { "startingMmr": mmr } }));
+        c.persist_session();
+    }
+    publish(&app);
     get_state(app)
 }
 
@@ -571,6 +596,7 @@ fn main() {
             get_state,
             save_settings,
             reset_session_cmd,
+            set_mmr_cmd,
             statsapi_status,
             statsapi_detect,
             statsapi_choose,
