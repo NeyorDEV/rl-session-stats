@@ -34,6 +34,7 @@
     setAutostart: (enabled) => invoke('set_autostart', { enabled }),
     getOverlayPreview: () => invoke('get_overlay_preview'),
     setOverlayPreview: (preview) => invoke('set_overlay_preview', { preview }),
+    getVersion: () => invoke('app_version'),
     copy: copyText,
     quit: () => invoke('quit_app'),
     onState: (callback) => tauri.event.listen('state', (event) => callback(event.payload)),

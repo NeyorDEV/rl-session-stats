@@ -903,6 +903,11 @@ fn get_overlay_preview(app: AppHandle) -> bool {
     ctx.preview_overlay.load(Ordering::Relaxed)
 }
 
+#[tauri::command]
+fn app_version(app: AppHandle) -> String {
+    app.package_info().version.to_string()
+}
+
 // ---------------------------------------------------------------------------
 // Démarrage
 // ---------------------------------------------------------------------------
@@ -1212,6 +1217,7 @@ fn main() {
             overlay_size,
             get_overlay_preview,
             set_overlay_preview,
+            app_version,
         ])
         .on_window_event(|window, event| {
             // Fermer la fenêtre des paramètres la cache seulement : l'overlay reste actif.

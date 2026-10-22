@@ -15,7 +15,10 @@
   <aside class="session">
     <div class="brand">
       <img src="icon.png" alt="" width="28" height="28">
-      <span>RL Session Stats</span>
+      <div>
+        <span>RL Session Stats</span>
+        <span class="app-version-badge" id="appVersion">v1.3.0</span>
+      </div>
     </div>
 
     <p class="status" id="status"><i></i><span>En attente de Rocket League</span></p>
@@ -75,6 +78,28 @@
 
   <!-- Paramètres -->
   <main class="settings">
+
+    <!-- Bannière de Mise à Jour -->
+    <div id="updateBanner" class="update-banner" hidden>
+      <div class="update-icon-pulse">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+      </div>
+      <div class="update-banner-body">
+        <div class="update-banner-header">
+          <strong>Mise à jour disponible : <span id="updateVersion" class="update-version-tag">v1.4.0</span></strong>
+          <span class="update-current-hint" id="updateCurrentHint">(actuelle : v1.3.0)</span>
+        </div>
+        <div class="update-banner-notes" id="updateNotes"></div>
+      </div>
+      <div class="update-banner-actions">
+        <button type="button" class="primary" id="updateDownloadBtn">Télécharger la mise à jour</button>
+        <button type="button" class="ghost" id="updateDismissBtn" title="Masquer l'alerte">Plus tard</button>
+      </div>
+    </div>
 
     <section id="sec-overlay">
       <div style="margin-bottom: 18px;">
@@ -488,7 +513,13 @@
     </section>
 
     <footer class="footer">
-      <p>Fermer cette fenêtre laisse l'overlay actif. L'icône près de l'horloge permet de la rouvrir.</p>
+      <div class="footer-info">
+        <p>Fermer cette fenêtre laisse l'overlay actif. L'icône près de l'horloge permet de la rouvrir.</p>
+        <div class="update-check-wrapper">
+          <button type="button" class="btn-subtle" id="checkUpdateBtn">Vérifier les mises à jour</button>
+          <span id="updateStatusText" class="update-status-text"></span>
+        </div>
+      </div>
       <span class="saved" id="saved" aria-live="polite"></span>
       <button type="button" class="ghost" id="quit">Quitter l'application</button>
     </footer>

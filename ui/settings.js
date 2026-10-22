@@ -209,6 +209,76 @@ function updatePreviewButton() {
   }
 }
 
+let appVersion = '1.3.0';
+let latestReleaseInfo = null;
+
+function parseSemver(v) {
+  if (!v) return [0, 0, 0];
+  const clean = String(v).replace(/^v/i, '').trim();
+  const parts = clean.split('.').map(n => parseInt(n, 10) || 0);
+  while (parts.length < 3) parts.push(0);
+  return parts;
+}
+
+function isNewerVersion(remote, current) {
+  const [rMaj, rMin, rPat] = parseSemver(remote);
+  const [cMaj, cMin, cPat] = parseSemver(current);
+  if (rMaj !== cMaj) return rMaj > cMaj;
+  if (rMin !== cMin) return rMin > cMin;
+  return rPat > cPat;
+}
+
+async function checkAppUpdates(silent = false) {
+  const statusEl = $('updateStatusText');
+  const banner = $('updateBanner');
+  const checkBtn = $('checkUpdateBtn');
+
+  if (!silent && statusEl) {
+    statusEl.textContent = 'Vérification en cours...';
+    statusEl.className = 'update-status-text';
+    if (checkBtn) checkBtn.disabled = true;
+  }
+
+  try {
+    const res = await fetch('https://api.github.com/repos/NeyorDEV/rl-session-stats/releases/latest', {
+      headers: { 'Accept': 'application/vnd.github.v3+json' },
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    latestReleaseInfo = data;
+
+    const remoteTag = data.tag_name || data.name || '';
+    if (isNewerVersion(remoteTag, appVersion)) {
+      if (banner) {
+        $('updateVersion').textContent = remoteTag.startsWith('v') ? remoteTag : 'v' + remoteTag;
+        if ($('updateCurrentHint')) $('updateCurrentHint').textContent = `(actuelle : v${appVersion})`;
+        const notes = (data.body || '').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#') && !l.startsWith('---')).slice(0, 2).join(' — ');
+        $('updateNotes').textContent = notes || data.name || 'Une nouvelle mise à jour est disponible sur GitHub.';
+        banner.hidden = false;
+      }
+      if (statusEl) {
+        statusEl.textContent = `Mise à jour disponible (${remoteTag})`;
+        statusEl.className = 'update-status-text found';
+      }
+    } else {
+      if (!silent && statusEl) {
+        statusEl.textContent = `Vous êtes à jour (v${appVersion})`;
+        statusEl.className = 'update-status-text ok';
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4500);
+      }
+    }
+  } catch (err) {
+    console.warn('Vérification des mises à jour impossible:', err);
+    if (!silent && statusEl) {
+      statusEl.textContent = 'Impossible de vérifier (hors ligne)';
+      statusEl.className = 'update-status-text error';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4500);
+    }
+  } finally {
+    if (!silent && checkBtn) checkBtn.disabled = false;
+  }
+}
+
 async function save(patch) {
   S = await app.save(patch);
   renderForm();
@@ -949,6 +1019,16 @@ function bind() {
     });
   }
 
+  $('updateDownloadBtn')?.addEventListener('click', () => {
+    const url = latestReleaseInfo?.html_url || 'https://github.com/NeyorDEV/rl-session-stats/releases/latest';
+    app.openBrowserUrl(url);
+  });
+  $('updateDismissBtn')?.addEventListener('click', () => {
+    const banner = $('updateBanner');
+    if (banner) banner.hidden = true;
+  });
+  $('checkUpdateBtn')?.addEventListener('click', () => checkAppUpdates(false));
+
   $('quit').addEventListener('click', () => app.quit());
 
   app.onState((state) => {
@@ -970,6 +1050,17 @@ function bind() {
 
 (async function init() {
   bind();
+  try {
+    if (app.getVersion) {
+      const v = await app.getVersion();
+      if (v) {
+        appVersion = v;
+        if ($('appVersion')) $('appVersion').textContent = `v${v}`;
+        if ($('updateCurrentHint')) $('updateCurrentHint').textContent = `(actuelle : v${v})`;
+      }
+    }
+  } catch (e) {}
+
   S = await app.getState();
   if ($('autostartWindows')) {
     try {
@@ -987,4 +1078,6 @@ function bind() {
   renderForm();
   formReady = true;
   renderApi(await app.statsApiStatus());
+
+  setTimeout(() => checkAppUpdates(true), 3000);
 })();

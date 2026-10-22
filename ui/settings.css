@@ -891,3 +891,127 @@ input[type="text"] { width: 100%; }
   border-radius: 4px;
   transition: width 0.6s ease;
 }
+
+/* ------------------------------------------------------------------ */
+/* Auto-Updater & Bannière de mise à jour                            */
+/* ------------------------------------------------------------------ */
+
+.app-version-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(135deg, rgba(14, 55, 99, 0.95) 0%, rgba(20, 80, 145, 0.9) 100%);
+  border: 1px solid var(--blue);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 18px rgba(0, 140, 255, 0.25);
+  animation: slideDownUpdate 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDownUpdate {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.update-icon-pulse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(54, 169, 255, 0.25);
+  color: #fff;
+  flex-shrink: 0;
+  animation: pulseBlue 2s infinite;
+}
+
+@keyframes pulseBlue {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(54, 169, 255, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(54, 169, 255, 0); }
+}
+
+.update-banner-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.update-banner-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #fff;
+}
+
+.update-version-tag {
+  color: #fff;
+  background: var(--blue);
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.update-current-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.update-banner-notes {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #d8e5f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 480px;
+}
+
+.update-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.update-banner-actions button {
+  font-size: 13px;
+  padding: 6px 12px;
+}
+
+.footer-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.update-check-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.update-status-text {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.update-status-text.ok { color: var(--good); }
+.update-status-text.found { color: var(--blue); font-weight: 600; }
+.update-status-text.error { color: var(--orange); }
