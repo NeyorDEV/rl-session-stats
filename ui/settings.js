@@ -191,6 +191,24 @@ function flashSaved(text = 'Enregistré') {
   savedTimer = setTimeout(() => { $('saved').textContent = ''; }, 1600);
 }
 
+let isPreviewing = false;
+
+function updatePreviewButton() {
+  const btn = $('previewOverlayBtn');
+  if (!btn) return;
+  if (isPreviewing) {
+    btn.textContent = "Arrêter l'aperçu";
+    btn.classList.remove('secondary');
+    btn.classList.add('primary');
+    btn.setAttribute('aria-pressed', 'true');
+  } else {
+    btn.textContent = "Prévisualiser l'overlay";
+    btn.classList.remove('primary');
+    btn.classList.add('secondary');
+    btn.setAttribute('aria-pressed', 'false');
+  }
+}
+
 async function save(patch) {
   S = await app.save(patch);
   renderForm();
@@ -509,6 +527,7 @@ function renderForm() {
   const setValue = (el, value) => { if (el !== active) el.value = value; };
 
   $('overlayEnabled').checked = !!o.enabled;
+  if ($('onlyInGame')) $('onlyInGame').checked = o.onlyInGame !== false;
   setPressed($('theme'), o.theme || 'rocketstats');
 
   for (const b of $('fields').querySelectorAll('button')) {
@@ -691,6 +710,18 @@ function bind() {
   });
 
   $('overlayEnabled').addEventListener('change', (e) => save({ overlay: { enabled: e.target.checked } }));
+  $('onlyInGame')?.addEventListener('change', (e) => save({ overlay: { onlyInGame: e.target.checked } }));
+
+  $('previewOverlayBtn')?.addEventListener('click', async () => {
+    try {
+      const next = !isPreviewing;
+      const res = await app.setOverlayPreview(next);
+      isPreviewing = !!res;
+      updatePreviewButton();
+    } catch (e) {
+      console.error('Erreur bascule prévisualisation overlay:', e);
+    }
+  });
 
   $('theme').addEventListener('click', (e) => {
     const v = e.target.closest('button')?.dataset.value;
@@ -926,7 +957,15 @@ function bind() {
     if (formReady) renderForm();
   });
 
-  window.addEventListener('focus', async () => renderApi(await app.statsApiStatus()));
+  window.addEventListener('focus', async () => {
+    try {
+      if (app.getOverlayPreview) {
+        isPreviewing = await app.getOverlayPreview();
+        updatePreviewButton();
+      }
+    } catch (e) {}
+    renderApi(await app.statsApiStatus());
+  });
 }
 
 (async function init() {
@@ -938,6 +977,12 @@ function bind() {
       $('autostartWindows').checked = !!isAuto;
     } catch(e) {}
   }
+  try {
+    if (app.getOverlayPreview) {
+      isPreviewing = await app.getOverlayPreview();
+      updatePreviewButton();
+    }
+  } catch (e) {}
   renderSession();
   renderForm();
   formReady = true;

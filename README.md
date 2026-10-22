@@ -161,6 +161,20 @@ npm run build
 
 ---
 
+## Code Signing & Integrity
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+---
+
+## Privacy Policy
+
+RL Session Stats respects your privacy:
+* **Zero telemetry & zero data collection**: All telemetry stays on your local machine.
+* For more details, see [PRIVACY.md](PRIVACY.md).
+
+---
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.

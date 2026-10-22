@@ -304,7 +304,74 @@ pub fn is_rocket_league_running() -> bool {
     }
 }
 
+/// Vérifie si la fenêtre active au premier plan appartient à Rocket League.
+#[cfg(windows)]
+pub fn is_rocket_league_focused() -> bool {
+    extern "system" {
+        fn GetForegroundWindow() -> *mut std::ffi::c_void;
+        fn GetWindowThreadProcessId(hwnd: *mut std::ffi::c_void, lpdw_process_id: *mut u32) -> u32;
+        fn OpenProcess(dw_desired_access: u32, b_inherit_handle: i32, dw_process_id: u32) -> *mut std::ffi::c_void;
+        fn QueryFullProcessImageNameW(h_process: *mut std::ffi::c_void, dw_flags: u32, lp_exe_name: *mut u16, lpdw_size: *mut u32) -> i32;
+        fn GetClassNameW(hwnd: *mut std::ffi::c_void, lp_class_name: *mut u16, n_max_count: i32) -> i32;
+        fn GetWindowTextW(hwnd: *mut std::ffi::c_void, lp_string: *mut u16, n_max_count: i32) -> i32;
+        fn CloseHandle(h_object: *mut std::ffi::c_void) -> i32;
+    }
+
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.is_null() {
+            return false;
+        }
+
+        // 1. Vérification rapide par classe de fenêtre Unreal Engine 3 de Rocket League
+        let mut class_buf = [0u16; 128];
+        let class_len = GetClassNameW(hwnd, class_buf.as_mut_ptr(), class_buf.len() as i32);
+        if class_len > 0 {
+            let class_str = String::from_utf16_lossy(&class_buf[..class_len as usize]);
+            if class_str == "LaunchUnrealUWindowsClient" {
+                return true;
+            }
+        }
+
+        // 2. Vérification par titre de la fenêtre
+        let mut title_buf = [0u16; 128];
+        let title_len = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), title_buf.len() as i32);
+        if title_len > 0 {
+            let title_str = String::from_utf16_lossy(&title_buf[..title_len as usize]).to_lowercase();
+            if title_str.starts_with("rocket league") {
+                return true;
+            }
+        }
+
+        // 3. Vérification par nom de l'exécutable du processus
+        let mut pid: u32 = 0;
+        GetWindowThreadProcessId(hwnd, &mut pid);
+        if pid != 0 {
+            let handle = OpenProcess(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */, 0, pid);
+            if !handle.is_null() {
+                let mut path_buf = [0u16; 512];
+                let mut size = path_buf.len() as u32;
+                let success = QueryFullProcessImageNameW(handle, 0, path_buf.as_mut_ptr(), &mut size);
+                CloseHandle(handle);
+                if success != 0 && size > 0 {
+                    let path = String::from_utf16_lossy(&path_buf[..size as usize]).to_lowercase();
+                    if path.ends_with("rocketleague.exe") {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+}
+
 #[cfg(not(windows))]
 pub fn is_rocket_league_running() -> bool {
     false
+}
+
+#[cfg(not(windows))]
+pub fn is_rocket_league_focused() -> bool {
+    true
 }

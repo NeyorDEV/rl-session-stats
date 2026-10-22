@@ -98,6 +98,19 @@
             </span>
           </label>
 
+          <label class="toggle" style="margin-top: 12px;">
+            <input type="checkbox" id="onlyInGame">
+            <span>Afficher uniquement quand Rocket League est au premier plan (masquage automatique au Alt-Tab)</span>
+          </label>
+
+          <div class="preview-banner" style="margin-top: 16px; padding: 12px 14px; background: rgba(54, 169, 255, 0.08); border: 1px solid rgba(54, 169, 255, 0.25); border-radius: var(--radius); display: flex; align-items: center; justify-content: space-between; gap: 14px;">
+            <div style="font-size: 13px; line-height: 1.4;">
+              <strong style="display: block; color: var(--text); font-weight: 600;">Prévisualisation en direct</strong>
+              <span class="hint" style="margin: 0; font-size: 12px;">Affichez temporairement l'overlay sur votre écran pour régler la position, la taille et le thème sans devoir lancer le jeu.</span>
+            </div>
+            <button type="button" class="secondary" id="previewOverlayBtn" style="white-space: nowrap; flex-shrink: 0; font-weight: 600; padding: 7px 14px;">Prévisualiser l'overlay</button>
+          </div>
+
           <div style="margin-top: 18px;">
             <div class="group-label">Thème visuel de l'overlay</div>
             <div class="theme-grid" id="theme">

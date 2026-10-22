@@ -9,6 +9,7 @@ use std::path::PathBuf;
 #[serde(rename_all = "camelCase", default)]
 pub struct OverlaySettings {
     pub enabled: bool,
+    pub only_in_game: bool,
     pub fields: Vec<String>,
     pub position: String,
     pub offset_x: f64,
@@ -35,6 +36,7 @@ impl Default for OverlaySettings {
     fn default() -> Self {
         OverlaySettings {
             enabled: true,
+            only_in_game: true,
             fields: ["rank", "mmr", "wins", "losses", "streak"].map(String::from).to_vec(),
             position: "top-left".into(),
             offset_x: 24.0,

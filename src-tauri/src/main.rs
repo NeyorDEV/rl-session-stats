@@ -14,7 +14,7 @@ use serde_json::{json, Value};
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -218,6 +218,7 @@ struct Ctx {
     rl_port: Arc<AtomicU16>,
     web: WebServer,
     toggle_item: Mutex<Option<CheckMenuItem<Wry>>>,
+    preview_overlay: Arc<AtomicBool>,
 }
 
 // ---------------------------------------------------------------------------
@@ -276,14 +277,14 @@ fn after_effects(app: &AppHandle, effects: Effects) {
 // Overlay en jeu
 // ---------------------------------------------------------------------------
 
-fn apply_overlay(app: &AppHandle) {
+fn render_overlay_on_screen(app: &AppHandle) {
     let Some(win) = app.get_webview_window("overlay") else { return };
-    let (o, (w, h)) = {
+    let (o, (w, h), is_preview) = {
         let ctx = app.state::<Ctx>();
         let c = ctx.core.lock().unwrap();
-        (c.store.data.overlay.clone(), c.overlay_size)
+        (c.store.data.overlay.clone(), c.overlay_size, ctx.preview_overlay.load(Ordering::Relaxed))
     };
-    if !o.enabled {
+    if !o.enabled && !is_preview {
         let _ = win.set_position(LogicalPosition::new(OFFSCREEN, OFFSCREEN));
         return;
     }
@@ -304,6 +305,33 @@ fn apply_overlay(app: &AppHandle) {
     let _ = win.set_size(LogicalSize::new(w, h));
     let _ = win.set_position(LogicalPosition::new(x.round(), y.round()));
     let _ = win.set_always_on_top(true);
+}
+
+fn hide_overlay(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window("overlay") {
+        let _ = win.set_position(LogicalPosition::new(OFFSCREEN, OFFSCREEN));
+    }
+}
+
+fn apply_overlay(app: &AppHandle) {
+    let (enabled, only_in_game, is_preview) = {
+        let ctx = app.state::<Ctx>();
+        let c = ctx.core.lock().unwrap();
+        (c.store.data.overlay.enabled, c.store.data.overlay.only_in_game, ctx.preview_overlay.load(Ordering::Relaxed))
+    };
+    if is_preview {
+        render_overlay_on_screen(app);
+        return;
+    }
+    if !enabled {
+        hide_overlay(app);
+        return;
+    }
+    if only_in_game && !rl_config::is_rocket_league_focused() {
+        hide_overlay(app);
+    } else {
+        render_overlay_on_screen(app);
+    }
 }
 
 fn toggle_overlay(app: &AppHandle) {
@@ -861,6 +889,20 @@ fn overlay_size(app: AppHandle, w: f64, h: f64) {
     apply_overlay(&app);
 }
 
+#[tauri::command]
+fn set_overlay_preview(app: AppHandle, preview: bool) -> bool {
+    let ctx = app.state::<Ctx>();
+    ctx.preview_overlay.store(preview, Ordering::Relaxed);
+    apply_overlay(&app);
+    preview
+}
+
+#[tauri::command]
+fn get_overlay_preview(app: AppHandle) -> bool {
+    let ctx = app.state::<Ctx>();
+    ctx.preview_overlay.load(Ordering::Relaxed)
+}
+
 // ---------------------------------------------------------------------------
 // Démarrage
 // ---------------------------------------------------------------------------
@@ -935,7 +977,13 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         WebServer::start(server_port, Arc::new(move || core.lock().unwrap().overlay_state()))
     };
 
-    app.manage(Ctx { core: core.clone(), rl_port: rl_port.clone(), web, toggle_item: Mutex::new(None) });
+    app.manage(Ctx {
+        core: core.clone(),
+        rl_port: rl_port.clone(),
+        web,
+        toggle_item: Mutex::new(None),
+        preview_overlay: Arc::new(AtomicBool::new(false)),
+    });
 
     // --- Icône près de l'horloge ---
     let enabled = core.lock().unwrap().store.data.overlay.enabled;
@@ -1036,30 +1084,30 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
-    // Game Watcher : veille automatique quand le jeu est fermé, réveil et maintien toujours au premier plan
+    // Game Watcher : veille automatique quand le jeu est fermé ou en arrière-plan (Alt-Tab)
     {
         let app = handle.clone();
         thread::spawn(move || {
-            thread::sleep(Duration::from_secs(5));
             let mut was_running = false;
-            loop {
-                let is_running = rl_config::is_rocket_league_running();
-                let (enabled, auto_sync) = {
-                    let ctx = app.state::<Ctx>();
-                    let c = ctx.core.lock().unwrap();
-                    (c.store.data.overlay.enabled, c.store.data.player.auto_sync_mmr)
-                };
+            let mut was_visible = false;
+            let mut run_check_counter: u32 = 0;
+            let mut is_running = false;
 
-                if is_running {
-                    if !was_running {
+            loop {
+                // Vérifier si le processus Rocket League tourne toutes les ~1.5 secondes
+                if run_check_counter % 6 == 0 {
+                    let running_now = rl_config::is_rocket_league_running();
+                    if running_now && !was_running {
                         was_running = true;
                         {
                             let ctx = app.state::<Ctx>();
-                            ctx.core.lock().unwrap().log("Rocket League détecté — réveil de l'overlay");
+                            ctx.core.lock().unwrap().log("Rocket League détecté");
                         }
-                        if enabled {
-                            apply_overlay(&app);
-                        }
+                        let auto_sync = {
+                            let ctx = app.state::<Ctx>();
+                            let c = ctx.core.lock().unwrap();
+                            c.store.data.player.auto_sync_mmr
+                        };
                         if auto_sync {
                             let h = app.clone();
                             tauri::async_runtime::spawn(async move {
@@ -1067,22 +1115,48 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                                 let _ = perform_tracker_sync(h).await;
                             });
                         }
-                    } else if enabled {
-                        if let Some(win) = app.get_webview_window("overlay") {
-                            let _ = win.set_always_on_top(true);
+                    } else if !running_now && was_running {
+                        was_running = false;
+                        {
+                            let ctx = app.state::<Ctx>();
+                            ctx.core.lock().unwrap().log("Rocket League fermé — mise en veille de l'overlay");
                         }
                     }
-                } else if was_running {
-                    was_running = false;
-                    {
-                        let ctx = app.state::<Ctx>();
-                        ctx.core.lock().unwrap().log("Rocket League fermé — mise en veille de l'overlay");
+                    is_running = running_now;
+                }
+                run_check_counter = run_check_counter.wrapping_add(1);
+
+                let (enabled, only_in_game, is_preview) = {
+                    let ctx = app.state::<Ctx>();
+                    let c = ctx.core.lock().unwrap();
+                    (c.store.data.overlay.enabled, c.store.data.overlay.only_in_game, ctx.preview_overlay.load(Ordering::Relaxed))
+                };
+
+                let should_be_visible = if is_preview {
+                    true
+                } else if !enabled {
+                    false
+                } else if !only_in_game {
+                    is_running
+                } else {
+                    rl_config::is_rocket_league_focused()
+                };
+
+                if should_be_visible {
+                    if !was_visible {
+                        was_visible = true;
+                        render_overlay_on_screen(&app);
+                    } else if let Some(win) = app.get_webview_window("overlay") {
+                        let _ = win.set_always_on_top(true);
                     }
-                    if let Some(win) = app.get_webview_window("overlay") {
-                        let _ = win.set_position(LogicalPosition::new(OFFSCREEN, OFFSCREEN));
+                } else {
+                    if was_visible {
+                        was_visible = false;
+                        hide_overlay(&app);
                     }
                 }
-                thread::sleep(Duration::from_secs(3));
+
+                thread::sleep(Duration::from_millis(250));
             }
         });
     }
@@ -1136,6 +1210,8 @@ fn main() {
             quit_app,
             overlay_state,
             overlay_size,
+            get_overlay_preview,
+            set_overlay_preview,
         ])
         .on_window_event(|window, event| {
             // Fermer la fenêtre des paramètres la cache seulement : l'overlay reste actif.
@@ -1143,6 +1219,10 @@ fn main() {
                 if window.label() == "settings" {
                     api.prevent_close();
                     let _ = window.hide();
+                    let ctx = window.app_handle().state::<Ctx>();
+                    if ctx.preview_overlay.swap(false, Ordering::Relaxed) {
+                        apply_overlay(window.app_handle());
+                    }
                 }
             }
         })
