@@ -608,8 +608,8 @@ function renderForm() {
   if ($('customPosBtn')) $('customPosBtn').setAttribute('aria-pressed', String(isCustomPos));
   if ($('labelOffsetX')) $('labelOffsetX').textContent = isCustomPos ? 'Position X (px)' : 'Marge X';
   if ($('labelOffsetY')) $('labelOffsetY').textContent = isCustomPos ? 'Position Y (px)' : 'Marge Y';
-  setValue($('offsetX'), o.offsetX);
-  setValue($('offsetY'), o.offsetY);
+  setValue($('offsetX'), isCustomPos ? (o.customX != null ? o.customX : o.offsetX) : o.offsetX);
+  setValue($('offsetY'), isCustomPos ? (o.customY != null ? o.customY : o.offsetY) : o.offsetY);
   setValue($('scale'), o.scale);
   $('scaleOut').textContent = `${Math.round(o.scale * 100)} %`;
   setValue($('opacity'), o.opacity != null ? o.opacity : 0.92);
@@ -809,9 +809,24 @@ function bind() {
   $('customPosBtn')?.addEventListener('click', () => {
     save({ overlay: { position: 'custom' } });
   });
-  for (const id of ['offsetX', 'offsetY']) {
-    $(id).addEventListener('change', (e) => save({ overlay: { [id]: Number(e.target.value) || 0 } }));
-  }
+
+  $('offsetX')?.addEventListener('change', (e) => {
+    const val = Number(e.target.value) || 0;
+    if (S?.settings?.overlay?.position === 'custom') {
+      save({ overlay: { customX: val } });
+    } else {
+      save({ overlay: { offsetX: val } });
+    }
+  });
+
+  $('offsetY')?.addEventListener('change', (e) => {
+    const val = Number(e.target.value) || 0;
+    if (S?.settings?.overlay?.position === 'custom') {
+      save({ overlay: { customY: val } });
+    } else {
+      save({ overlay: { offsetY: val } });
+    }
+  });
   $('scale').addEventListener('input', (e) => { $('scaleOut').textContent = `${Math.round(e.target.value * 100)} %`; });
   $('scale').addEventListener('change', (e) => save({ overlay: { scale: Number(e.target.value) } }));
 

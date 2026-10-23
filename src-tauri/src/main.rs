@@ -298,7 +298,9 @@ fn render_overlay_on_screen(app: &AppHandle) {
     let (w, h) = (w.max(40.0), h.max(20.0));
 
     let (x, y) = if o.position == "custom" {
-        (pos.x + o.offset_x, pos.y + o.offset_y)
+        let cx = o.custom_x.unwrap_or(o.offset_x);
+        let cy = o.custom_y.unwrap_or(o.offset_y);
+        (pos.x + cx, pos.y + cy)
     } else {
         let (vertical, horizontal) = o.position.split_once('-').unwrap_or(("top", "left"));
         let x = match horizontal {
@@ -940,6 +942,24 @@ fn app_version(app: AppHandle) -> String {
     app.package_info().version.to_string()
 }
 
+#[tauri::command]
+fn set_overlay_custom_position(app: AppHandle, x: f64, y: f64) {
+    {
+        let ctx = app.state::<Ctx>();
+        let mut c = ctx.core.lock().unwrap();
+        c.store.update(json!({
+            "overlay": {
+                "position": "custom",
+                "customX": x.round(),
+                "customY": y.round()
+            }
+        }));
+        c.store.save();
+    }
+    apply_overlay(&app);
+    publish(&app);
+}
+
 // ---------------------------------------------------------------------------
 // Démarrage
 // ---------------------------------------------------------------------------
@@ -1250,48 +1270,9 @@ fn main() {
             get_overlay_preview,
             set_overlay_preview,
             app_version,
+            set_overlay_custom_position,
         ])
         .on_window_event(|window, event| {
-            if window.label() == "overlay" {
-                if let WindowEvent::Moved(pos) = event {
-                    let ctx = window.app_handle().state::<Ctx>();
-                    if ctx.preview_overlay.load(Ordering::Relaxed) {
-                        if let Some(monitor) = window.primary_monitor().ok().flatten() {
-                            let sf = monitor.scale_factor();
-                            let m_pos = monitor.position().to_logical::<f64>(sf);
-                            let cur_pos = pos.to_logical::<f64>(sf);
-                            let rel_x = (cur_pos.x - m_pos.x).round();
-                            let rel_y = (cur_pos.y - m_pos.y).round();
-                            if rel_x > -1000.0 && rel_y > -1000.0 {
-                                let changed = {
-                                    let mut c = ctx.core.lock().unwrap();
-                                    if c.store.data.overlay.offset_x != rel_x
-                                        || c.store.data.overlay.offset_y != rel_y
-                                        || c.store.data.overlay.position != "custom"
-                                    {
-                                        c.store.update(json!({
-                                            "overlay": {
-                                                "position": "custom",
-                                                "offsetX": rel_x,
-                                                "offsetY": rel_y
-                                            }
-                                        }));
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                };
-                                if changed {
-                                    let app_h = window.app_handle().clone();
-                                    tauri::async_runtime::spawn(async move {
-                                        publish(&app_h);
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
             // Fermer la fenêtre des paramètres la cache seulement : l'overlay reste actif.
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "settings" {

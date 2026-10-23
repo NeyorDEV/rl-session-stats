@@ -14,6 +14,10 @@ pub struct OverlaySettings {
     pub position: String,
     pub offset_x: f64,
     pub offset_y: f64,
+    #[serde(default)]
+    pub custom_x: Option<f64>,
+    #[serde(default)]
+    pub custom_y: Option<f64>,
     pub scale: f64,
     pub opacity: f64,
     pub layout: String,
@@ -41,6 +45,8 @@ impl Default for OverlaySettings {
             position: "top-left".into(),
             offset_x: 24.0,
             offset_y: 24.0,
+            custom_x: None,
+            custom_y: None,
             scale: 1.0,
             opacity: 0.92,
             layout: "row".into(),

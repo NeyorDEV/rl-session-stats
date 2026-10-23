@@ -882,7 +882,7 @@
     const theme = forcedTheme || display.theme || 'rocketstats';
     const fields = (forcedFields ? forcedFields.split(',') : display.fields || ['rank', 'mmr', 'wins', 'losses', 'streak'])
       .filter((k) => FIELDS[k]);
-    const layout = forcedLayout || display.layout || 'column';
+    const layout = forcedLayout || display.layout || 'row';
     const s = state.session || {};
 
     const curMmr = Number(s.currentMmr || 0);
@@ -984,9 +984,55 @@
       const el = container.firstElementChild;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      tauri.core.invoke('overlay_size', { w: r.width + 30, h: r.height + 20 });
+      tauri.core.invoke('overlay_size', { w: Math.ceil(r.width) + 40, h: Math.ceil(r.height) + 30 });
     });
   }
+
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let winStartX = 0;
+  let winStartY = 0;
+
+  window.addEventListener('mousedown', async (e) => {
+    if (!isApp || e.button !== 0) return;
+    isDragging = true;
+    dragStartX = e.screenX;
+    dragStartY = e.screenY;
+    try {
+      const win = tauri.window.getCurrentWebviewWindow();
+      const pos = await win.outerPosition();
+      const sf = await win.scaleFactor();
+      winStartX = pos.x / sf;
+      winStartY = pos.y / sf;
+    } catch (err) {}
+  });
+
+  window.addEventListener('mousemove', async (e) => {
+    if (!isDragging) return;
+    const dx = e.screenX - dragStartX;
+    const dy = e.screenY - dragStartY;
+    try {
+      const win = tauri.window.getCurrentWebviewWindow();
+      win.setPosition(new tauri.window.LogicalPosition(Math.round(winStartX + dx), Math.round(winStartY + dy)));
+    } catch (err) {}
+  });
+
+  window.addEventListener('mouseup', async (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    try {
+      const win = tauri.window.getCurrentWebviewWindow();
+      const pos = await win.outerPosition();
+      const monitor = await win.primaryMonitor();
+      const sf = await win.scaleFactor();
+      const curLogical = { x: pos.x / sf, y: pos.y / sf };
+      const monLogical = monitor ? { x: monitor.position.x / sf, y: monitor.position.y / sf } : { x: 0, y: 0 };
+      const relX = Math.round(curLogical.x - monLogical.x);
+      const relY = Math.round(curLogical.y - monLogical.y);
+      tauri.core.invoke('set_overlay_custom_position', { x: relX, y: relY });
+    } catch (err) {}
+  });
 
   if (isApp) {
     document.body.classList.add('app');
