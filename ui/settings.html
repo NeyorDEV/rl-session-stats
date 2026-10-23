@@ -179,16 +179,23 @@
                 <button type="button" data-pos="bottom-center" aria-label="En bas au centre"></button>
                 <button type="button" data-pos="bottom-right" aria-label="En bas à droite"></button>
               </div>
+
+              <div style="margin-top: 8px;">
+                <button type="button" class="custom-pos-btn" id="customPosBtn">
+                  <span>Position libre (glisser-déposer)</span>
+                </button>
+              </div>
+
               <div class="margin-inputs">
                 <label class="margin-field">
-                  <span>Marge X</span>
+                  <span id="labelOffsetX">Marge X</span>
                   <div class="input-unit">
                     <input type="number" id="offsetX" step="4">
                     <small>px</small>
                   </div>
                 </label>
                 <label class="margin-field">
-                  <span>Marge Y</span>
+                  <span id="labelOffsetY">Marge Y</span>
                   <div class="input-unit">
                     <input type="number" id="offsetY" step="4">
                     <small>px</small>
@@ -204,6 +211,7 @@
                 <button type="button" data-value="row">En ligne (Horizontal)</button>
                 <button type="button" data-value="column">En colonne (Vertical)</button>
               </div>
+              <p class="hint" style="margin: 4px 0 0; font-size: 11px;">Aligne les blocs de statistiques côte à côte (horizontal) ou empilés (vertical) pour les thèmes modulaires.</p>
 
               <div class="slider-group" style="margin-top: 14px;">
                 <div class="slider-row">

@@ -288,6 +288,32 @@ kbd {
 .screen button:hover::after { background: var(--muted); }
 .screen button[aria-pressed="true"]::after { background: var(--blue); }
 
+.custom-pos-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.custom-pos-btn:hover {
+  border-color: var(--blue);
+  color: #fff;
+}
+.custom-pos-btn[aria-pressed="true"] {
+  background: linear-gradient(135deg, rgba(18, 96, 176, 0.45) 0%, rgba(54, 169, 255, 0.25) 100%);
+  border: 1px solid var(--blue);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(54, 169, 255, 0.25);
+}
+
 .inline { display: flex; gap: 16px; flex-wrap: wrap; }
 .inline label, .range { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
 .range { margin: 12px 0; }

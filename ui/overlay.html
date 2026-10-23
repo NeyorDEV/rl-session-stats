@@ -424,10 +424,19 @@
   }
 
   body.offline { opacity: .45; }
+
+  #container[data-tauri-drag-region] {
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #container[data-tauri-drag-region]:active {
+    cursor: grabbing;
+  }
 </style>
 </head>
 <body>
-<div id="container"></div>
+<div id="container" data-tauri-drag-region></div>
 
 <script>
   let prevMmr = null;

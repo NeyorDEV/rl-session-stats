@@ -603,7 +603,11 @@ function renderForm() {
   for (const b of $('fields').querySelectorAll('button')) {
     b.setAttribute('aria-pressed', String(o.fields.includes(b.dataset.key)));
   }
-  setPressed($('position'), o.position);
+  const isCustomPos = o.position === 'custom';
+  setPressed($('position'), isCustomPos ? '' : o.position);
+  if ($('customPosBtn')) $('customPosBtn').setAttribute('aria-pressed', String(isCustomPos));
+  if ($('labelOffsetX')) $('labelOffsetX').textContent = isCustomPos ? 'Position X (px)' : 'Marge X';
+  if ($('labelOffsetY')) $('labelOffsetY').textContent = isCustomPos ? 'Position Y (px)' : 'Marge Y';
   setValue($('offsetX'), o.offsetX);
   setValue($('offsetY'), o.offsetY);
   setValue($('scale'), o.scale);
@@ -801,6 +805,10 @@ function bind() {
   $('position').addEventListener('click', (e) => {
     const pos = e.target.closest('button')?.dataset.pos;
     if (pos) save({ overlay: { position: pos } });
+  });
+
+  $('customPosBtn')?.addEventListener('click', () => {
+    save({ overlay: { position: 'custom' } });
   });
   for (const id of ['offsetX', 'offsetY']) {
     $(id).addEventListener('change', (e) => save({ overlay: { [id]: Number(e.target.value) || 0 } }));

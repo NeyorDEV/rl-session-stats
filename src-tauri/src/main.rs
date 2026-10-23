@@ -288,6 +288,7 @@ fn render_overlay_on_screen(app: &AppHandle) {
     };
     if !o.enabled && !is_preview {
         let _ = win.set_position(LogicalPosition::new(OFFSCREEN, OFFSCREEN));
+        let _ = win.set_ignore_cursor_events(true);
         return;
     }
     let Some(monitor) = win.primary_monitor().ok().flatten() else { return };
@@ -295,23 +296,34 @@ fn render_overlay_on_screen(app: &AppHandle) {
     let pos = monitor.position().to_logical::<f64>(sf);
     let size = monitor.size().to_logical::<f64>(sf);
     let (w, h) = (w.max(40.0), h.max(20.0));
-    let (vertical, horizontal) = o.position.split_once('-').unwrap_or(("top", "left"));
 
-    let x = match horizontal {
-        "left" => pos.x + o.offset_x,
-        "right" => pos.x + size.width - w - o.offset_x,
-        _ => pos.x + (size.width - w) / 2.0 + o.offset_x,
+    let (x, y) = if o.position == "custom" {
+        (pos.x + o.offset_x, pos.y + o.offset_y)
+    } else {
+        let (vertical, horizontal) = o.position.split_once('-').unwrap_or(("top", "left"));
+        let x = match horizontal {
+            "left" => pos.x + o.offset_x,
+            "right" => pos.x + size.width - w - o.offset_x,
+            _ => pos.x + (size.width - w) / 2.0 + o.offset_x,
+        };
+        let y = if vertical == "bottom" {
+            pos.y + size.height - h - o.offset_y
+        } else {
+            pos.y + o.offset_y
+        };
+        (x, y)
     };
-    let y = if vertical == "bottom" { pos.y + size.height - h - o.offset_y } else { pos.y + o.offset_y };
 
     let _ = win.set_size(LogicalSize::new(w, h));
     let _ = win.set_position(LogicalPosition::new(x.round(), y.round()));
     let _ = win.set_always_on_top(true);
+    let _ = win.set_ignore_cursor_events(!is_preview);
 }
 
 fn hide_overlay(app: &AppHandle) {
     if let Some(win) = app.get_webview_window("overlay") {
         let _ = win.set_position(LogicalPosition::new(OFFSCREEN, OFFSCREEN));
+        let _ = win.set_ignore_cursor_events(true);
     }
 }
 
@@ -1240,6 +1252,46 @@ fn main() {
             app_version,
         ])
         .on_window_event(|window, event| {
+            if window.label() == "overlay" {
+                if let WindowEvent::Moved(pos) = event {
+                    let ctx = window.app_handle().state::<Ctx>();
+                    if ctx.preview_overlay.load(Ordering::Relaxed) {
+                        if let Some(monitor) = window.primary_monitor().ok().flatten() {
+                            let sf = monitor.scale_factor();
+                            let m_pos = monitor.position().to_logical::<f64>(sf);
+                            let cur_pos = pos.to_logical::<f64>(sf);
+                            let rel_x = (cur_pos.x - m_pos.x).round();
+                            let rel_y = (cur_pos.y - m_pos.y).round();
+                            if rel_x > -1000.0 && rel_y > -1000.0 {
+                                let changed = {
+                                    let mut c = ctx.core.lock().unwrap();
+                                    if c.store.data.overlay.offset_x != rel_x
+                                        || c.store.data.overlay.offset_y != rel_y
+                                        || c.store.data.overlay.position != "custom"
+                                    {
+                                        c.store.update(json!({
+                                            "overlay": {
+                                                "position": "custom",
+                                                "offsetX": rel_x,
+                                                "offsetY": rel_y
+                                            }
+                                        }));
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                };
+                                if changed {
+                                    let app_h = window.app_handle().clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        publish(&app_h);
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             // Fermer la fenêtre des paramètres la cache seulement : l'overlay reste actif.
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "settings" {
