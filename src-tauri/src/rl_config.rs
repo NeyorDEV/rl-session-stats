@@ -102,23 +102,27 @@ pub fn find_install_dirs() -> Vec<String> {
         .collect()
 }
 
-/// Fichiers à modifier : ceux qui existent parmi TAStatsAPI.ini / DefaultStatsAPI.ini (dossier du jeu)
-/// et TAStatsAPI.ini (Documents). DefaultStatsAPI.ini est créé si aucun n'existe.
+/// Fichiers à modifier : TAStatsAPI.ini / DefaultStatsAPI.ini (dossier du jeu)
+/// et TAStatsAPI.ini (Documents & OneDrive).
 fn target_files(install_dir: &str, documents_dir: Option<&Path>) -> Vec<PathBuf> {
+    let mut files = vec![];
     let config = Path::new(install_dir).join("TAGame").join("Config");
-    let ta = config.join("TAStatsAPI.ini");
-    let def = config.join("DefaultStatsAPI.ini");
-    let mut files: Vec<PathBuf> = [ta, def.clone()].into_iter().filter(|f| f.exists()).collect();
-    if files.is_empty() {
-        files.push(def);
-    }
+    files.push(config.join("DefaultStatsAPI.ini"));
+    files.push(config.join("TAStatsAPI.ini"));
+
     if let Some(docs) = documents_dir {
-        let doc = docs.join("My Games").join("Rocket League").join("TAGame").join("Config").join("TAStatsAPI.ini");
-        if doc.exists() {
-            files.push(doc);
-        }
+        files.push(docs.join("My Games").join("Rocket League").join("TAGame").join("Config").join("TAStatsAPI.ini"));
     }
-    files
+    #[cfg(windows)]
+    if let Ok(user_profile) = std::env::var("USERPROFILE") {
+        let docs = PathBuf::from(&user_profile).join("Documents");
+        files.push(docs.join("My Games").join("Rocket League").join("TAGame").join("Config").join("TAStatsAPI.ini"));
+        let one_drive = PathBuf::from(&user_profile).join("OneDrive").join("Documents");
+        files.push(one_drive.join("My Games").join("Rocket League").join("TAGame").join("Config").join("TAStatsAPI.ini"));
+    }
+
+    let mut seen = std::collections::HashSet::new();
+    files.into_iter().filter(|f| seen.insert(f.to_string_lossy().to_lowercase())).collect()
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]

@@ -263,6 +263,8 @@ fn after_effects(app: &AppHandle, effects: Effects) {
                 let app_handle = app.clone();
                 tauri::async_runtime::spawn(async move {
                     std::thread::sleep(Duration::from_secs(4));
+                    let _ = perform_tracker_sync(app_handle.clone()).await;
+                    std::thread::sleep(Duration::from_secs(6));
                     let _ = perform_tracker_sync(app_handle).await;
                 });
             }
@@ -581,10 +583,16 @@ async fn perform_tracker_sync(app: AppHandle) -> Result<Value, String> {
         })
         .collect();
 
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+
     let url_str = format!(
-        "https://rocketleague.tracker.network/rocket-league/profile/{}/{}",
+        "https://rocketleague.tracker.network/rocket-league/profile/{}/{}?_nocache={}",
         platform,
-        encoded_user
+        encoded_user,
+        timestamp
     );
 
     let parsed_url = url_str
@@ -618,8 +626,14 @@ async fn perform_tracker_sync(app: AppHandle) -> Result<Value, String> {
       if (idx !== -1 && parts.length > idx + 2) {
         const plat = parts[idx + 1];
         const user = parts[idx + 2];
-        fetch('https://api.tracker.gg/api/v2/rocket-league/standard/profile/' + plat + '/' + user, {
-          headers: { 'Accept': 'application/json' },
+        const bust = Date.now();
+        fetch('https://api.tracker.gg/api/v2/rocket-league/standard/profile/' + plat + '/' + user + '?_nocache=' + bust, {
+          cache: 'no-store',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          },
           credentials: 'include'
         })
         .then(r => {
@@ -650,8 +664,8 @@ async fn perform_tracker_sync(app: AppHandle) -> Result<Value, String> {
     tryFetch();
     tryDom();
     if (attempts > 30) clearInterval(timer);
-  }, 1000);
-  setTimeout(tryFetch, 1500);
+  }, 800);
+  setTimeout(tryFetch, 400);
 })();
 "#;
 
@@ -678,7 +692,7 @@ async fn perform_tracker_sync(app: AppHandle) -> Result<Value, String> {
     for tick in 0..50 {
         std::thread::sleep(Duration::from_millis(500));
 
-        if tick % 4 == 0 {
+        if tick % 3 == 0 {
             let _ = win.eval(r#"
                 (function() {
                   try {
@@ -687,8 +701,14 @@ async fn perform_tracker_sync(app: AppHandle) -> Result<Value, String> {
                     if (idx !== -1 && parts.length > idx + 2) {
                       const plat = parts[idx + 1];
                       const user = parts[idx + 2];
-                      fetch('https://api.tracker.gg/api/v2/rocket-league/standard/profile/' + plat + '/' + user, {
-                        headers: { 'Accept': 'application/json' },
+                      const bust = Date.now();
+                      fetch('https://api.tracker.gg/api/v2/rocket-league/standard/profile/' + plat + '/' + user + '?_nocache=' + bust, {
+                        cache: 'no-store',
+                        headers: {
+                          'Accept': 'application/json',
+                          'Cache-Control': 'no-cache, no-store, must-revalidate',
+                          'Pragma': 'no-cache'
+                        },
                         credentials: 'include'
                       })
                       .then(r => r.json())
