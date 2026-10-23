@@ -882,7 +882,7 @@
     const theme = forcedTheme || display.theme || 'rocketstats';
     const fields = (forcedFields ? forcedFields.split(',') : display.fields || ['rank', 'mmr', 'wins', 'losses', 'streak'])
       .filter((k) => FIELDS[k]);
-    const layout = forcedLayout || display.layout || 'row';
+    const layout = forcedLayout || display.layout || 'column';
     const s = state.session || {};
 
     const curMmr = Number(s.currentMmr || 0);

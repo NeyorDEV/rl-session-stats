@@ -614,7 +614,6 @@ function renderForm() {
   $('scaleOut').textContent = `${Math.round(o.scale * 100)} %`;
   setValue($('opacity'), o.opacity != null ? o.opacity : 0.92);
   $('opacityOut').textContent = `${Math.round((o.opacity != null ? o.opacity : 0.92) * 100)} %`;
-  setPressed($('layout'), o.layout);
 
   if ($('sessionGoalMmr')) setValue($('sessionGoalMmr'), o.sessionGoalMmr || '');
   if ($('showGoal')) $('showGoal').checked = !!o.showGoal;
@@ -818,11 +817,6 @@ function bind() {
 
   $('opacity').addEventListener('input', (e) => { $('opacityOut').textContent = `${Math.round(e.target.value * 100)} %`; });
   $('opacity').addEventListener('change', (e) => save({ overlay: { opacity: Number(e.target.value) } }));
-
-  $('layout').addEventListener('click', (e) => {
-    const v = e.target.closest('button')?.dataset.value;
-    if (v) save({ overlay: { layout: v } });
-  });
 
   // Couleurs personnalisées de l'overlay
   let colorSaveTimer = null;
