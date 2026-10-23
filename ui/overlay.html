@@ -18,12 +18,26 @@
     --gold: #ffc107;
     --purple: #b388ff;
   }
-  html, body { margin: 0; background: transparent; overflow: hidden; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+  }
+  ::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
   body {
     font-family: 'Saira Semi Condensed', 'Bahnschrift', 'Arial Narrow', 'Segoe UI', sans-serif;
     color: var(--text);
-    padding: 8px 14px;
-    display: inline-block;
+    padding: 10px 14px;
+    display: block;
+    overflow: visible;
+    box-sizing: border-box;
   }
 
   /* =========================================================================
@@ -431,6 +445,8 @@
     -webkit-user-select: none;
     width: max-content;
     height: max-content;
+    display: inline-block;
+    transform-origin: 0 0;
   }
   #container[data-tauri-drag-region]:active {
     cursor: grabbing;
@@ -985,14 +1001,16 @@
     requestAnimationFrame(() => {
       const el = container.firstElementChild;
       if (!el) return;
-      const r = el.getBoundingClientRect();
+      const cr = container.getBoundingClientRect();
+      const elr = el.getBoundingClientRect();
       const scaleMatch = container.style.transform.match(/scale\(([^)]+)\)/);
       const currentScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1.0;
       const naturalW = el.scrollWidth || el.offsetWidth;
       const naturalH = el.scrollHeight || el.offsetHeight;
-      const computedW = Math.max(Math.ceil(r.width), Math.ceil(naturalW * currentScale));
-      const computedH = Math.max(Math.ceil(r.height), Math.ceil(naturalH * currentScale));
-      tauri.core.invoke('overlay_size', { w: computedW + 60, h: computedH + 50 });
+      const computedW = Math.max(Math.ceil(cr.width), Math.ceil(elr.width), Math.ceil(naturalW * currentScale));
+      const computedH = Math.max(Math.ceil(cr.height), Math.ceil(elr.height), Math.ceil(naturalH * currentScale));
+      // Buffer pour le padding du body (14px + 14px) et l'ombre portée (box-shadow)
+      tauri.core.invoke('overlay_size', { w: computedW + 40, h: computedH + 32 });
     });
   }
 
