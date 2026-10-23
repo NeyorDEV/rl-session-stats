@@ -209,7 +209,7 @@ function updatePreviewButton() {
   }
 }
 
-let appVersion = '1.3.0';
+let appVersion = '1.3.1';
 let latestReleaseInfo = null;
 
 function parseSemver(v) {
