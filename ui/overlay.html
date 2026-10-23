@@ -429,6 +429,8 @@
     cursor: grab;
     user-select: none;
     -webkit-user-select: none;
+    width: max-content;
+    height: max-content;
   }
   #container[data-tauri-drag-region]:active {
     cursor: grabbing;
@@ -984,7 +986,13 @@
       const el = container.firstElementChild;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      tauri.core.invoke('overlay_size', { w: Math.ceil(r.width) + 40, h: Math.ceil(r.height) + 30 });
+      const scaleMatch = container.style.transform.match(/scale\(([^)]+)\)/);
+      const currentScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1.0;
+      const naturalW = el.scrollWidth || el.offsetWidth;
+      const naturalH = el.scrollHeight || el.offsetHeight;
+      const computedW = Math.max(Math.ceil(r.width), Math.ceil(naturalW * currentScale));
+      const computedH = Math.max(Math.ceil(r.height), Math.ceil(naturalH * currentScale));
+      tauri.core.invoke('overlay_size', { w: computedW + 60, h: computedH + 50 });
     });
   }
 

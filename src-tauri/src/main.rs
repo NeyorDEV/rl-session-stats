@@ -691,7 +691,7 @@ async fn perform_tracker_sync(app: AppHandle) -> Result<Value, String> {
         .decorations(false)
         .shadow(false)
         .skip_taskbar(true)
-        .resizable(false)
+        .resizable(true)
         .focused(false)
         .visible(false)
         .initialization_script(init_script)
@@ -1086,7 +1086,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)
-        .resizable(false)
+        .resizable(true)
         .focused(false)
         .visible(true)
         .build()?;
