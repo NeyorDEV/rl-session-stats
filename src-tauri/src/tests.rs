@@ -306,3 +306,35 @@ fn mmr_et_calcul_rang() {
     assert_eq!(tracker.session.division, 3);
     assert_eq!(tracker.session.rank_tier, 20);
 }
+
+#[test]
+fn parse_player_from_log_epic() {
+    let log_sample = r#"
+[0001.23] Init: Command line: -epicapp=Sugar -epicenv=Prod -epicusername="neyor." -epicuserid=6897812333f244858dddff1fbb06554f
+[0004.56] Log: HandleLocalPlayerLoginStatusChanged PlayerName=neyor. PlayerID=Epic|6897812333f244858dddff1fbb06554f|0 bLoggedIn=1
+"#;
+    let detected = rl_config::parse_player_from_log_content(log_sample).expect("Joueur Epic doit être détecté");
+    assert_eq!(detected.platform, "epic");
+    assert_eq!(detected.name, "neyor.");
+    assert_eq!(detected.id, "6897812333f244858dddff1fbb06554f");
+}
+
+#[test]
+fn parse_player_from_log_steam() {
+    let log_sample = r#"
+[0001.23] Init: Steam initialized
+[0005.12] Log: HandleLocalPlayerLoginStatusChanged PlayerName=SquishyMuffinz PlayerID=Steam|76561198000000000|0 bLoggedIn=1
+"#;
+    let detected = rl_config::parse_player_from_log_content(log_sample).expect("Joueur Steam doit être détecté");
+    assert_eq!(detected.platform, "steam");
+    assert_eq!(detected.name, "SquishyMuffinz");
+    assert_eq!(detected.id, "76561198000000000");
+}
+
+#[test]
+fn detect_installations_structure() {
+    let installs = rl_config::detect_game_installations();
+    // Doit renvoyer une structure DetectedInstalls valide sans paniquer
+    let _ = installs.epic;
+    let _ = installs.steam;
+}

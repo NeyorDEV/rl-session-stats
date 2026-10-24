@@ -24,6 +24,8 @@
     setMmr: (mmr) => invoke('set_mmr_cmd', { mmr }),
     statsApiStatus: () => invoke('statsapi_status'),
     detectInstall: () => invoke('statsapi_detect'),
+    selectInstallPlatform: (platform) => invoke('statsapi_select_platform', { platform }),
+    detectPlayerNow: () => invoke('detect_player_now'),
     chooseInstall: () => invoke('statsapi_choose'),
     enableStatsApi: () => invoke('statsapi_enable'),
     openObsFolder: () => invoke('open_obs_folder'),

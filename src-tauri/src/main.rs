@@ -448,15 +448,68 @@ async fn statsapi_status(app: AppHandle) -> Value {
 
 #[tauri::command]
 async fn statsapi_detect(app: AppHandle) -> Value {
-    let found = rl_config::find_install_dirs();
-    if let Some(dir) = found.first() {
+    let installs = rl_config::detect_game_installations();
+    let target = installs.epic.clone().or(installs.steam.clone());
+    if let Some(dir) = target {
         let ctx = app.state::<Ctx>();
         ctx.core.lock().unwrap().store.update(json!({ "statsApi": { "installDir": dir } }));
     }
     publish(&app);
     let mut status = stats_api_status(&app);
-    status["notFound"] = json!(found.is_empty());
+    status["notFound"] = json!(installs.epic.is_none() && installs.steam.is_none());
     status
+}
+
+#[tauri::command]
+async fn statsapi_select_platform(app: AppHandle, platform: String) -> Value {
+    let installs = rl_config::detect_game_installations();
+    let target = match platform.to_lowercase().as_str() {
+        "epic" => installs.epic,
+        "steam" => installs.steam,
+        _ => None,
+    };
+    if let Some(dir) = target {
+        {
+            let ctx = app.state::<Ctx>();
+            ctx.core.lock().unwrap().store.update(json!({ "statsApi": { "installDir": dir } }));
+        }
+        publish(&app);
+    }
+    stats_api_status(&app)
+}
+
+#[tauri::command]
+async fn detect_player_now(app: AppHandle) -> Value {
+    let docs = app.state::<Ctx>().core.lock().unwrap().documents_dir.clone();
+    if let Some(player) = rl_config::detect_player_from_logs(docs.as_deref()) {
+        {
+            let ctx = app.state::<Ctx>();
+            let mut c = ctx.core.lock().unwrap();
+            c.store.update(json!({
+                "player": {
+                    "platform": player.platform,
+                    "customName": player.name
+                }
+            }));
+            c.log(&format!("Joueur d\u{e9}tect\u{e9} : {} ({})", player.name, player.platform));
+        }
+        publish(&app);
+        let h = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let _ = perform_tracker_sync(h).await;
+        });
+        json!({
+            "success": true,
+            "platform": player.platform,
+            "name": player.name,
+            "id": player.id
+        })
+    } else {
+        json!({
+            "success": false,
+            "error": "Aucun profil trouv\u{e9} dans les fichiers de log (Launch.log). Lancez Rocket League au moins une fois."
+        })
+    }
 }
 
 #[tauri::command]
@@ -919,8 +972,55 @@ fn overlay_size(app: AppHandle, w: f64, h: f64) {
     if !(w.is_finite() && h.is_finite()) || w <= 0.0 || h <= 0.0 {
         return;
     }
-    app.state::<Ctx>().core.lock().unwrap().overlay_size = (w.ceil(), h.ceil());
-    apply_overlay(&app);
+    let changed = {
+        let ctx = app.state::<Ctx>();
+        let mut c = ctx.core.lock().unwrap();
+        let (cur_w, cur_h) = c.overlay_size;
+        if (cur_w - w).abs() < 2.0 && (cur_h - h).abs() < 2.0 {
+            false
+        } else {
+            c.overlay_size = (w.ceil(), h.ceil());
+            true
+        }
+    };
+    if changed {
+        apply_overlay(&app);
+    }
+}
+
+#[tauri::command]
+fn drag_overlay_by(app: AppHandle, dx: f64, dy: f64) {
+    let Some(win) = app.get_webview_window("overlay") else { return };
+    if let Ok(pos) = win.outer_position() {
+        let sf = win.scale_factor().unwrap_or(1.0);
+        let new_pos = LogicalPosition::new(pos.x as f64 / sf + dx, pos.y as f64 / sf + dy);
+        let _ = win.set_position(new_pos);
+    }
+}
+
+#[tauri::command]
+fn save_overlay_drag_finish(app: AppHandle) {
+    let Some(win) = app.get_webview_window("overlay") else { return };
+    let sf = win.scale_factor().unwrap_or(1.0);
+    if let (Ok(win_pos), Ok(Some(mon))) = (win.outer_position(), win.primary_monitor()) {
+        let mon_pos = mon.position().to_logical::<f64>(sf);
+        let cur_pos = win_pos.to_logical::<f64>(sf);
+        let rel_x = (cur_pos.x - mon_pos.x).round();
+        let rel_y = (cur_pos.y - mon_pos.y).round();
+        {
+            let ctx = app.state::<Ctx>();
+            let mut c = ctx.core.lock().unwrap();
+            c.store.update(json!({
+                "overlay": {
+                    "position": "custom",
+                    "customX": rel_x,
+                    "customY": rel_y
+                }
+            }));
+            c.store.save();
+        }
+        publish(&app);
+    }
 }
 
 #[tauri::command]
@@ -974,9 +1074,21 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let session_file = data_dir.join("session.json");
 
     let mut store = SettingsStore::load(data_dir.join("settings.json"));
+    let documents_dir = app.path().document_dir().ok();
     if !rl_config::is_valid_install(&store.data.stats_api.install_dir) {
         if let Some(dir) = rl_config::find_install_dirs().into_iter().next() {
             store.update(json!({ "statsApi": { "installDir": dir } }));
+        }
+    }
+    // Détection automatique du pseudo au lancement s'il n'est pas encore renseigné
+    if store.data.player.custom_name.trim().is_empty() {
+        if let Some(player) = rl_config::detect_player_from_logs(documents_dir.as_deref()) {
+            store.update(json!({
+                "player": {
+                    "platform": player.platform,
+                    "customName": player.name
+                }
+            }));
         }
     }
 
@@ -1024,7 +1136,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         session_file,
         history_file,
         log_file,
-        documents_dir: app.path().document_dir().ok(),
+        documents_dir,
     };
     core.persist_session();
     let core = Arc::new(Mutex::new(core));
@@ -1160,18 +1272,31 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                             let ctx = app.state::<Ctx>();
                             ctx.core.lock().unwrap().log("Rocket League détecté");
                         }
-                        let auto_sync = {
-                            let ctx = app.state::<Ctx>();
-                            let c = ctx.core.lock().unwrap();
-                            c.store.data.player.auto_sync_mmr
-                        };
-                        if auto_sync {
-                            let h = app.clone();
-                            tauri::async_runtime::spawn(async move {
-                                std::thread::sleep(Duration::from_secs(4));
+                        let h = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            // Attente de 2.5s pour laisser Rocket League démarrer et écrire Launch.log
+                            std::thread::sleep(Duration::from_millis(2500));
+                            let docs = h.state::<Ctx>().core.lock().unwrap().documents_dir.clone();
+                            if let Some(player) = rl_config::detect_player_from_logs(docs.as_deref()) {
+                                {
+                                    let ctx = h.state::<Ctx>();
+                                    let mut c = ctx.core.lock().unwrap();
+                                    c.store.update(json!({
+                                        "player": {
+                                            "platform": player.platform,
+                                            "customName": player.name
+                                        }
+                                    }));
+                                    c.log(&format!("Profil joueur actualisé : {} ({})", player.name, player.platform));
+                                }
+                                publish(&h);
+                            }
+                            let auto_sync = h.state::<Ctx>().core.lock().unwrap().store.data.player.auto_sync_mmr;
+                            if auto_sync {
+                                std::thread::sleep(Duration::from_millis(1500));
                                 let _ = perform_tracker_sync(h).await;
-                            });
-                        }
+                            }
+                        });
                     } else if !running_now && was_running {
                         was_running = false;
                         {
@@ -1256,6 +1381,8 @@ fn main() {
             set_mmr_cmd,
             statsapi_status,
             statsapi_detect,
+            statsapi_select_platform,
+            detect_player_now,
             statsapi_choose,
             statsapi_enable,
             open_obs_folder,
@@ -1267,6 +1394,8 @@ fn main() {
             quit_app,
             overlay_state,
             overlay_size,
+            drag_overlay_by,
+            save_overlay_drag_finish,
             get_overlay_preview,
             set_overlay_preview,
             app_version,

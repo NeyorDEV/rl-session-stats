@@ -1,10 +1,26 @@
 //! Trouve le dossier d'installation de Rocket League et règle la Stats API dans ses fichiers .ini.
 
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DetectedPlayer {
+    pub platform: String,
+    pub name: String,
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DetectedInstalls {
+    pub epic: Option<String>,
+    pub steam: Option<String>,
+}
 
 const SECTION: &str = "[TAGame.MatchStatsExporter_TA]";
 
@@ -89,17 +105,165 @@ fn steam_install_dirs() -> Vec<String> {
     dirs
 }
 
-pub fn find_install_dirs() -> Vec<String> {
-    let mut candidates = epic_install_dirs();
-    candidates.extend(steam_install_dirs());
-    candidates.push(r"C:\Program Files\Epic Games\rocketleague".into());
-    candidates.push(r"D:\Epic Games\rocketleague".into());
-
-    let mut seen = std::collections::HashSet::new();
-    candidates
+pub fn detect_game_installations() -> DetectedInstalls {
+    let mut epic_candidates = epic_install_dirs();
+    epic_candidates.push(r"C:\Program Files\Epic Games\rocketleague".into());
+    epic_candidates.push(r"D:\Epic Games\rocketleague".into());
+    let mut seen_epic = std::collections::HashSet::new();
+    let epic = epic_candidates
         .into_iter()
-        .filter(|d| seen.insert(d.to_lowercase()) && is_valid_install(d))
-        .collect()
+        .filter(|d| seen_epic.insert(d.to_lowercase()))
+        .find(|d| is_valid_install(d));
+
+    let mut steam_candidates = steam_install_dirs();
+    steam_candidates.push(r"C:\Program Files (x86)\Steam\steamapps\common\rocketleague".into());
+    steam_candidates.push(r"C:\Program Files\Steam\steamapps\common\rocketleague".into());
+    let mut seen_steam = std::collections::HashSet::new();
+    let steam = steam_candidates
+        .into_iter()
+        .filter(|d| seen_steam.insert(d.to_lowercase()))
+        .find(|d| is_valid_install(d));
+
+    DetectedInstalls { epic, steam }
+}
+
+pub fn find_install_dirs() -> Vec<String> {
+    let installs = detect_game_installations();
+    let mut list = Vec::new();
+    if let Some(e) = installs.epic {
+        list.push(e);
+    }
+    if let Some(s) = installs.steam {
+        list.push(s);
+    }
+    list
+}
+
+pub fn find_launch_log_paths(documents_dir: Option<&Path>) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(doc) = documents_dir {
+        candidates.push(doc.join("My Games").join("Rocket League").join("TAGame").join("Logs").join("Launch.log"));
+    }
+    #[cfg(windows)]
+    if let Ok(user_profile) = std::env::var("USERPROFILE") {
+        let p = Path::new(&user_profile);
+        candidates.push(p.join("OneDrive").join("Documents").join("My Games").join("Rocket League").join("TAGame").join("Logs").join("Launch.log"));
+        candidates.push(p.join("Documents").join("My Games").join("Rocket League").join("TAGame").join("Logs").join("Launch.log"));
+    }
+    for d in find_install_dirs() {
+        candidates.push(Path::new(&d).join("TAGame").join("Logs").join("Launch.log"));
+    }
+
+    let mut existing: Vec<PathBuf> = candidates
+        .into_iter()
+        .filter(|p| p.exists())
+        .collect();
+
+    existing.sort_by(|a, b| {
+        let t_a = fs::metadata(a).and_then(|m| m.modified()).unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+        let t_b = fs::metadata(b).and_then(|m| m.modified()).unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+        t_b.cmp(&t_a)
+    });
+
+    existing
+}
+
+pub fn read_file_shared(path: &Path) -> Option<String> {
+    #[cfg(windows)]
+    {
+        use std::io::Read;
+        use std::os::windows::fs::OpenOptionsExt;
+        let mut opts = fs::OpenOptions::new();
+        opts.read(true);
+        opts.share_mode(7); // FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE
+        if let Ok(mut f) = opts.open(path) {
+            let mut buf = Vec::new();
+            if f.read_to_end(&mut buf).is_ok() {
+                return Some(String::from_utf8_lossy(&buf).into_owned());
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        use std::io::Read;
+        if let Ok(mut f) = fs::File::open(path) {
+            let mut buf = Vec::new();
+            if f.read_to_end(&mut buf).is_ok() {
+                return Some(String::from_utf8_lossy(&buf).into_owned());
+            }
+        }
+    }
+    None
+}
+
+pub fn parse_player_from_log_content(content: &str) -> Option<DetectedPlayer> {
+    let mut detected_cmd_user: Option<String> = None;
+    let mut detected_cmd_id: Option<String> = None;
+
+    // Scan backwards to find the most recent session's login line first
+    for line in content.lines().rev() {
+        if line.contains("HandleLocalPlayerLoginStatusChanged") {
+            if let Some(name_pos) = line.find("PlayerName=") {
+                let rest = &line[name_pos + "PlayerName=".len()..];
+                let name = rest.split_whitespace().next().unwrap_or("").trim();
+                if let Some(id_pos) = line.find("PlayerID=") {
+                    let id_rest = &line[id_pos + "PlayerID=".len()..];
+                    let id_token = id_rest.split_whitespace().next().unwrap_or("").trim();
+                    let parts: Vec<&str> = id_token.split('|').collect();
+                    let raw_platform = parts.get(0).unwrap_or(&"epic").to_lowercase();
+                    let platform = if raw_platform.contains("steam") { "steam" } else { "epic" }.to_string();
+                    let raw_id = parts.get(1).unwrap_or(&"").to_string();
+                    if !name.is_empty() {
+                        return Some(DetectedPlayer {
+                            platform,
+                            name: name.to_string(),
+                            id: if raw_id.is_empty() { id_token.to_string() } else { raw_id },
+                        });
+                    }
+                }
+            }
+        }
+
+        if detected_cmd_user.is_none() && line.contains("-epicusername=") {
+            if let Some(pos) = line.find("-epicusername=") {
+                let rest = &line[pos + "-epicusername=".len()..];
+                let user = rest.split_whitespace().next().unwrap_or("").trim();
+                if !user.is_empty() {
+                    detected_cmd_user = Some(user.to_string());
+                }
+            }
+        }
+        if detected_cmd_id.is_none() && line.contains("-epicuserid=") {
+            if let Some(pos) = line.find("-epicuserid=") {
+                let rest = &line[pos + "-epicuserid=".len()..];
+                let id = rest.split_whitespace().next().unwrap_or("").trim();
+                if !id.is_empty() {
+                    detected_cmd_id = Some(id.to_string());
+                }
+            }
+        }
+    }
+
+    if let Some(user) = detected_cmd_user {
+        return Some(DetectedPlayer {
+            platform: "epic".to_string(),
+            name: user,
+            id: detected_cmd_id.unwrap_or_default(),
+        });
+    }
+
+    None
+}
+
+pub fn detect_player_from_logs(documents_dir: Option<&Path>) -> Option<DetectedPlayer> {
+    for path in find_launch_log_paths(documents_dir) {
+        if let Some(content) = read_file_shared(&path) {
+            if let Some(player) = parse_player_from_log_content(&content) {
+                return Some(player);
+            }
+        }
+    }
+    None
 }
 
 /// Fichiers à modifier : TAStatsAPI.ini / DefaultStatsAPI.ini (dossier du jeu)
@@ -225,8 +389,29 @@ pub fn set_ini_values(text: &str, values: &[(&str, String)]) -> String {
 }
 
 pub fn read_status(install_dir: &str, documents_dir: Option<&Path>) -> Value {
+    let installs = detect_game_installations();
+    let norm_cur = install_dir.trim().to_lowercase();
+    let epic_norm = installs.epic.as_ref().map(|s| s.trim().to_lowercase());
+    let steam_norm = installs.steam.as_ref().map(|s| s.trim().to_lowercase());
+    let active_platform = if !norm_cur.is_empty() && epic_norm.as_ref() == Some(&norm_cur) {
+        "epic"
+    } else if !norm_cur.is_empty() && steam_norm.as_ref() == Some(&norm_cur) {
+        "steam"
+    } else if !norm_cur.is_empty() {
+        "custom"
+    } else {
+        "none"
+    };
+
     if !is_valid_install(install_dir) {
-        return json!({ "installDir": install_dir, "valid": false, "enabled": false, "files": [] });
+        return json!({
+            "installDir": install_dir,
+            "valid": false,
+            "enabled": false,
+            "files": [],
+            "installs": installs,
+            "activePlatform": active_platform,
+        });
     }
     let files: Vec<Value> = target_files(install_dir, documents_dir)
         .iter()
@@ -239,12 +424,39 @@ pub fn read_status(install_dir: &str, documents_dir: Option<&Path>) -> Value {
         .collect();
     let existing: Vec<&Value> = files.iter().filter(|f| f["exists"] == true).collect();
     let enabled = !existing.is_empty() && existing.iter().all(|f| f["packetSendRate"].as_f64().unwrap_or(0.0) > 0.0);
-    json!({ "installDir": install_dir, "valid": true, "enabled": enabled, "files": files })
+    json!({
+        "installDir": install_dir,
+        "valid": true,
+        "enabled": enabled,
+        "files": files,
+        "installs": installs,
+        "activePlatform": active_platform,
+    })
 }
 
 pub fn enable_stats_api(install_dir: &str, documents_dir: Option<&Path>, packet_send_rate: u32, port: u16) -> io::Result<Vec<PathBuf>> {
     let mut written = vec![];
-    for path in target_files(install_dir, documents_dir) {
+    let installs = detect_game_installations();
+    let mut all_dirs = vec![install_dir.to_string()];
+    if let Some(e) = installs.epic {
+        if !all_dirs.iter().any(|d| d.eq_ignore_ascii_case(&e)) {
+            all_dirs.push(e);
+        }
+    }
+    if let Some(s) = installs.steam {
+        if !all_dirs.iter().any(|d| d.eq_ignore_ascii_case(&s)) {
+            all_dirs.push(s);
+        }
+    }
+
+    let mut target_paths = vec![];
+    for d in all_dirs {
+        target_paths.extend(target_files(&d, documents_dir));
+    }
+    let mut seen = std::collections::HashSet::new();
+    let unique_targets: Vec<PathBuf> = target_paths.into_iter().filter(|f| seen.insert(f.to_string_lossy().to_lowercase())).collect();
+
+    for path in unique_targets {
         let backup = PathBuf::from(format!("{}.bak", path.display()));
         if path.exists() && !backup.exists() {
             fs::copy(&path, &backup)?;

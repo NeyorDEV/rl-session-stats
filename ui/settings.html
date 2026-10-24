@@ -366,11 +366,42 @@
       <h2>Stats API de Rocket League</h2>
       <p class="api-state" id="apiState"></p>
 
-      <h3>Dossier du jeu</h3>
-      <p class="path" id="installDir"></p>
-      <div class="buttons">
-        <button type="button" class="secondary" id="detect">Détecter automatiquement</button>
-        <button type="button" class="secondary" id="choose">Choisir le dossier…</button>
+      <h3>Emplacements de jeu détectés</h3>
+      <div class="install-targets-grid" id="installTargetsGrid">
+        <!-- Carte Epic Games -->
+        <label class="install-target-card" id="installCardEpic">
+          <input type="radio" name="installPlatformChoice" value="epic" id="radioInstallEpic">
+          <div class="install-target-body">
+            <div class="install-target-header">
+              <span class="install-platform-title">Epic Games</span>
+              <span class="badge" id="badgeInstallEpic">Recherche…</span>
+            </div>
+            <div class="install-target-path" id="pathInstallEpic">Vérification en cours…</div>
+          </div>
+        </label>
+
+        <!-- Carte Steam -->
+        <label class="install-target-card" id="installCardSteam">
+          <input type="radio" name="installPlatformChoice" value="steam" id="radioInstallSteam">
+          <div class="install-target-body">
+            <div class="install-target-header">
+              <span class="install-platform-title">Steam</span>
+              <span class="badge" id="badgeInstallSteam">Recherche…</span>
+            </div>
+            <div class="install-target-path" id="pathInstallSteam">Vérification en cours…</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Dossier actif ou personnalisé -->
+      <div id="customInstallNotice" style="display: none; margin-top: 10px;">
+        <div style="font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 4px;">Dossier personnalisé sélectionné :</div>
+        <p class="path" id="installDir"></p>
+      </div>
+
+      <div class="buttons" style="margin-top: 10px;">
+        <button type="button" class="secondary" id="detect">Rafraîchir la détection</button>
+        <button type="button" class="secondary" id="choose">Choisir un autre dossier…</button>
       </div>
 
       <h3>Fréquence d'envoi</h3>
@@ -389,7 +420,16 @@
 
     <section id="sec-player">
       <h2>Joueur & Compte</h2>
-      <p id="detected"></p>
+
+      <div class="auto-detect-banner">
+        <div class="auto-detect-info">
+          <div class="auto-detect-title">Détection automatique du pseudo</div>
+          <div class="auto-detect-desc">Votre pseudo et votre plateforme sont détectés en direct dès le lancement du jeu ou au démarrage de l'app.</div>
+        </div>
+        <button type="button" class="secondary" id="detectPlayerBtn" style="white-space: nowrap; font-size: 12px;">Détecter maintenant</button>
+      </div>
+
+      <p id="detected" style="margin-top: 8px;"></p>
 
       <h3>Plateforme</h3>
       <div class="segmented" id="playerPlatform">
@@ -408,7 +448,7 @@
 
       <div class="inline" style="margin-top: 14px; align-items: flex-end;">
         <label class="stack" style="flex: 1;">Pseudo en jeu
-          <input type="text" id="customName" placeholder="Cochez d'abord Epic ou Steam ci-dessus" spellcheck="false" disabled>
+          <input type="text" id="customName" placeholder="Détecté automatiquement au lancement du jeu ou saisissez ici..." spellcheck="false">
         </label>
       </div>
 

@@ -658,9 +658,8 @@ function renderForm() {
 
   const pl = S.settings.player || {};
   setPressed($('playerPlatform'), pl.platform || '');
-  const hasPlatform = !!pl.platform;
-  $('customName').disabled = !hasPlatform;
-  $('customName').placeholder = hasPlatform ? 'Entrez votre pseudo exact...' : 'Cochez d\'abord Epic ou Steam ci-dessus';
+  $('customName').disabled = false;
+  $('customName').placeholder = 'Détecté automatiquement au lancement du jeu ou saisissez ici...';
   setValue($('customName'), pl.customName || '');
   if ($('autoSyncMmr')) $('autoSyncMmr').checked = !!pl.autoSyncMmr;
 
@@ -717,8 +716,60 @@ function renderApi(result) {
   } else state.textContent = 'Désactivée';
 
   const dir = $('installDir');
-  dir.textContent = api.installDir || 'Aucun dossier sélectionné';
-  dir.classList.toggle('missing', !api.valid);
+  if (dir) {
+    dir.textContent = api.installDir || 'Aucun dossier sélectionné';
+    dir.classList.toggle('missing', !api.valid);
+  }
+
+  // Double détection Epic / Steam
+  const installs = api.installs || {};
+  const activePlat = api.activePlatform || 'none';
+
+  // Epic
+  const epicPath = installs.epic;
+  const pathEpicEl = $('pathInstallEpic');
+  const badgeEpicEl = $('badgeInstallEpic');
+  const radioEpicEl = $('radioInstallEpic');
+  const cardEpicEl = $('installCardEpic');
+  if (pathEpicEl) pathEpicEl.textContent = epicPath || 'Non détecté sur cette machine';
+  if (badgeEpicEl) {
+    badgeEpicEl.textContent = epicPath ? 'Détecté' : 'Non détecté';
+    badgeEpicEl.className = epicPath ? 'badge-detected' : 'badge-missing';
+  }
+  if (radioEpicEl) {
+    radioEpicEl.checked = activePlat === 'epic';
+    radioEpicEl.disabled = !epicPath;
+  }
+  if (cardEpicEl) {
+    cardEpicEl.classList.toggle('active', activePlat === 'epic');
+    cardEpicEl.classList.toggle('disabled', !epicPath);
+  }
+
+  // Steam
+  const steamPath = installs.steam;
+  const pathSteamEl = $('pathInstallSteam');
+  const badgeSteamEl = $('badgeInstallSteam');
+  const radioSteamEl = $('radioInstallSteam');
+  const cardSteamEl = $('installCardSteam');
+  if (pathSteamEl) pathSteamEl.textContent = steamPath || 'Non détecté sur cette machine';
+  if (badgeSteamEl) {
+    badgeSteamEl.textContent = steamPath ? 'Détecté' : 'Non détecté';
+    badgeSteamEl.className = steamPath ? 'badge-detected' : 'badge-missing';
+  }
+  if (radioSteamEl) {
+    radioSteamEl.checked = activePlat === 'steam';
+    radioSteamEl.disabled = !steamPath;
+  }
+  if (cardSteamEl) {
+    cardSteamEl.classList.toggle('active', activePlat === 'steam');
+    cardSteamEl.classList.toggle('disabled', !steamPath);
+  }
+
+  // Notice pour dossier personnalisé
+  const customNotice = $('customInstallNotice');
+  if (customNotice) {
+    customNotice.style.display = activePlat === 'custom' ? 'block' : 'none';
+  }
 
   $('enableApi').textContent = api.enabled ? 'Réappliquer le réglage' : 'Activer la Stats API';
   $('apiBanner').hidden = api.enabled;
@@ -949,6 +1000,26 @@ function bind() {
   });
   $('detect').addEventListener('click', async () => renderApi(await app.detectInstall()));
   $('choose').addEventListener('click', async () => renderApi(await app.chooseInstall()));
+
+  // Clic ou changement sur les cartes Epic / Steam
+  $('radioInstallEpic')?.addEventListener('change', async () => {
+    renderApi(await app.selectInstallPlatform('epic'));
+  });
+  $('installCardEpic')?.addEventListener('click', async (e) => {
+    if (e.target.tagName !== 'INPUT' && api?.installs?.epic) {
+      renderApi(await app.selectInstallPlatform('epic'));
+    }
+  });
+
+  $('radioInstallSteam')?.addEventListener('change', async () => {
+    renderApi(await app.selectInstallPlatform('steam'));
+  });
+  $('installCardSteam')?.addEventListener('click', async (e) => {
+    if (e.target.tagName !== 'INPUT' && api?.installs?.steam) {
+      renderApi(await app.selectInstallPlatform('steam'));
+    }
+  });
+
   $('enableApi').addEventListener('click', async () => {
     const btn = $('enableApi');
     btn.disabled = true;
@@ -956,19 +1027,31 @@ function bind() {
   });
   $('goToApi').addEventListener('click', () => $('sec-api').scrollIntoView({ behavior: 'smooth' }));
 
+  $('detectPlayerBtn')?.addEventListener('click', async () => {
+    const btn = $('detectPlayerBtn');
+    btn.disabled = true;
+    const oldText = btn.textContent;
+    btn.textContent = 'Détection…';
+    try {
+      const res = await app.detectPlayerNow();
+      if (res && res.success) {
+        flashSaved();
+        if ($('customName')) $('customName').value = res.name;
+        if ($('ppPseudo')) $('ppPseudo').textContent = res.name;
+      } else {
+        alert(res?.error || 'Aucun profil trouvé dans les logs du jeu.');
+      }
+    } finally {
+      btn.textContent = oldText;
+      btn.disabled = false;
+    }
+  });
+
   $('playerPlatform').addEventListener('click', (e) => {
     const v = e.target.closest('button')?.dataset.value;
     if (v !== undefined) {
-      const hasPlat = !!v;
-      $('customName').disabled = !hasPlat;
-      $('customName').placeholder = hasPlat ? 'Entrez votre pseudo exact...' : 'Cochez d\'abord Epic ou Steam ci-dessus';
-      if (!hasPlat) {
-        $('customName').value = '';
-        save({ player: { platform: '', customName: '' } });
-      } else {
-        save({ player: { platform: v } });
-        $('customName').focus();
-      }
+      save({ player: { platform: v } });
+      if (v) $('customName').focus();
     }
   });
 
