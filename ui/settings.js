@@ -376,10 +376,22 @@ function renderSession() {
   const since = new Date(s.startedAt);
   $('since').textContent = `Session commencée le ${since.toLocaleDateString('fr-FR')} à ${since.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
 
-  const p = S.settings.player;
-  $('detected').textContent = p.detectedName
-    ? `Détecté automatiquement : ${p.detectedName}`
-    : 'Pas encore détecté : lance une partie, ton joueur sera reconnu tout seul.';
+  const p = S.settings.player || {};
+  const activePseudo = p.customName || p.detectedName || '';
+  const platStr = p.platform ? (p.platform === 'steam' ? 'Steam' : 'Epic Games') : '';
+  if ($('autoDetectTitle')) {
+    $('autoDetectTitle').textContent = activePseudo
+      ? `Profil actif : ${activePseudo}${platStr ? ` (${platStr})` : ''}`
+      : 'Détection automatique du profil';
+  }
+  if ($('autoDetectDesc')) {
+    $('autoDetectDesc').textContent = activePseudo
+      ? 'Synchronisé automatiquement avec le client Rocket League.'
+      : 'Votre pseudo et plateforme s\'adaptent automatiquement au lancement de Rocket League.';
+  }
+  if ($('detected')) {
+    $('detected').textContent = activePseudo ? `Joueur actif : ${activePseudo}` : '';
+  }
 
   updateHistoryView();
 }
@@ -693,9 +705,10 @@ function renderForm() {
   setPressed($('focusedPlaylist'), cPl.focusedPlaylist || '2v2');
 
   const pl = S.settings.player || {};
-  setPressed($('playerPlatform'), pl.platform || '');
+  if ($('playerPlatformSelect')) $('playerPlatformSelect').value = pl.platform || '';
+  if ($('playerPlatform')) setPressed($('playerPlatform'), pl.platform || '');
   $('customName').disabled = false;
-  $('customName').placeholder = 'Détecté automatiquement au lancement du jeu ou saisissez ici...';
+  $('customName').placeholder = 'Détecté automatiquement ou saisissez votre pseudo...';
   setValue($('customName'), pl.customName || '');
   if ($('autoSyncMmr')) $('autoSyncMmr').checked = !!pl.autoSyncMmr;
 
@@ -1064,7 +1077,11 @@ function bind() {
     }
   });
 
-  $('playerPlatform').addEventListener('click', (e) => {
+  $('playerPlatformSelect')?.addEventListener('change', (e) => {
+    save({ player: { platform: e.target.value } });
+  });
+
+  $('playerPlatform')?.addEventListener('click', (e) => {
     const v = e.target.closest('button')?.dataset.value;
     if (v !== undefined) {
       save({ player: { platform: v } });

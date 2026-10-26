@@ -423,32 +423,35 @@
 
       <div class="auto-detect-banner">
         <div class="auto-detect-info">
-          <div class="auto-detect-title">Détection automatique du pseudo</div>
-          <div class="auto-detect-desc">Votre pseudo et votre plateforme sont détectés en direct dès le lancement du jeu ou au démarrage de l'app.</div>
+          <div class="auto-detect-title" id="autoDetectTitle">Détection automatique du profil</div>
+          <div class="auto-detect-desc" id="autoDetectDesc">Votre pseudo et plateforme s'adaptent automatiquement au lancement de Rocket League.</div>
         </div>
         <button type="button" class="secondary" id="detectPlayerBtn" style="white-space: nowrap; font-size: 12px;">Détecter maintenant</button>
       </div>
 
-      <p id="detected" style="margin-top: 8px;"></p>
-
-      <h3>Plateforme</h3>
-      <div class="segmented" id="playerPlatform">
-        <button type="button" data-value="epic">Epic Games</button>
-        <button type="button" data-value="steam">Steam</button>
-        <button type="button" data-value="">Détection auto</button>
+      <div style="margin-top: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; flex-wrap: wrap; gap: 6px;">
+          <h3 style="margin: 0;">Mode affiché par défaut (au menu)</h3>
+          <span style="font-size: 11px; font-weight: 700; color: #2ecc71; letter-spacing: 0.4px;">BASCULE AUTOMATIQUE ACTIVE EN MATCH</span>
+        </div>
+        <div class="segmented" id="focusedPlaylist">
+          <button type="button" data-value="1v1">1v1 (Duel)</button>
+          <button type="button" data-value="2v2">2v2 (Doubles)</button>
+          <button type="button" data-value="3v3">3v3 (Standard)</button>
+        </div>
+        <p class="hint">Affiché sur l'overlay hors match. Dès qu'un match classé démarre, l'overlay s'adapte automatiquement au mode joué (1v1, 2v2, 3v3...).</p>
       </div>
 
-      <h3>Mode de jeu focalisé</h3>
-      <div class="segmented" id="focusedPlaylist">
-        <button type="button" data-value="1v1">1v1 (Duel)</button>
-        <button type="button" data-value="2v2">2v2 (Doubles)</button>
-        <button type="button" data-value="3v3">3v3 (Standard)</button>
-      </div>
-      <p class="hint">Adapte le calcul du rang au mode sélectionné (ex: 1656 ELO en 2v2 = Grand Champion II Div. 3).</p>
-
-      <div class="inline" style="margin-top: 14px; align-items: flex-end;">
+      <div class="inline" style="margin-top: 14px; align-items: flex-end; gap: 10px;">
         <label class="stack" style="flex: 1;">Pseudo en jeu
-          <input type="text" id="customName" placeholder="Détecté automatiquement au lancement du jeu ou saisissez ici..." spellcheck="false">
+          <input type="text" id="customName" placeholder="Détecté automatiquement ou saisissez votre pseudo..." spellcheck="false">
+        </label>
+        <label class="stack" style="width: 140px;">Plateforme
+          <select id="playerPlatformSelect" style="height: 38px; background: #112238; color: #fff; border: 1px solid rgba(80, 150, 255, 0.4); border-radius: 6px; padding: 0 10px; font-weight: 600; font-size: 13px;">
+            <option value="epic">Epic Games</option>
+            <option value="steam">Steam</option>
+            <option value="">Détection auto</option>
+          </select>
         </label>
       </div>
 
