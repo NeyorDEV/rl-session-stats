@@ -366,31 +366,30 @@
       <h2>Stats API de Rocket League</h2>
       <p class="api-state" id="apiState"></p>
 
-      <h3>Emplacements de jeu détectés</h3>
-      <div class="install-targets-grid" id="installTargetsGrid">
-        <!-- Carte Epic Games -->
-        <label class="install-target-card" id="installCardEpic">
-          <input type="radio" name="installPlatformChoice" value="epic" id="radioInstallEpic">
-          <div class="install-target-body">
-            <div class="install-target-header">
-              <span class="install-platform-title">Epic Games</span>
-              <span class="badge" id="badgeInstallEpic">Recherche…</span>
-            </div>
-            <div class="install-target-path" id="pathInstallEpic">Vérification en cours…</div>
+      <h3>Détection automatique (style BakkesMod)</h3>
+      <div class="auto-platform-box" id="autoPlatformBox">
+        <div class="auto-platform-header">
+          <div class="auto-platform-status">
+            <span class="status-indicator" id="gameRunningDot"></span>
+            <span class="auto-platform-status-text" id="gameRunningStatus">En attente du lancement de Rocket League…</span>
           </div>
-        </label>
-
-        <!-- Carte Steam -->
-        <label class="install-target-card" id="installCardSteam">
-          <input type="radio" name="installPlatformChoice" value="steam" id="radioInstallSteam">
-          <div class="install-target-body">
-            <div class="install-target-header">
-              <span class="install-platform-title">Steam</span>
-              <span class="badge" id="badgeInstallSteam">Recherche…</span>
-            </div>
-            <div class="install-target-path" id="pathInstallSteam">Vérification en cours…</div>
+          <span class="badge badge-detected" id="activePlatformBadge">Auto-adaptatif</span>
+        </div>
+        <div class="auto-platform-details" id="autoPlatformDetails">
+          L'overlay détecte automatiquement d'où Rocket League est lancé (Steam ou Epic Games) et applique les réglages correspondants en direct.
+        </div>
+        <div class="detected-summary-list">
+          <div class="detected-summary-item" id="summaryEpic">
+            <span class="plat-name">Epic Games :</span>
+            <span class="plat-path" id="summaryPathEpic">Recherche…</span>
+            <span class="badge" id="summaryBadgeEpic">-</span>
           </div>
-        </label>
+          <div class="detected-summary-item" id="summarySteam">
+            <span class="plat-name">Steam :</span>
+            <span class="plat-path" id="summaryPathSteam">Recherche…</span>
+            <span class="badge" id="summaryBadgeSteam">-</span>
+          </div>
+        </div>
       </div>
 
       <!-- Dossier actif ou personnalisé -->
@@ -413,7 +412,7 @@
       <p class="hint">Pour des stats de session, 10 suffit : les fins de match sont transmises instantanément quoi qu'il arrive.</p>
 
       <div class="buttons">
-        <button type="button" class="primary" id="enableApi">Activer la Stats API</button>
+        <button type="button" class="primary" id="enableApi">Activer la Stats API (Epic & Steam)</button>
       </div>
       <p class="message" id="apiMsg" role="status"></p>
     </section>

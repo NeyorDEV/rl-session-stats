@@ -22,6 +22,15 @@ pub struct DetectedInstalls {
     pub steam: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RunningGameInfo {
+    pub pid: u32,
+    pub exe_path: String,
+    pub install_dir: Option<String>,
+    pub platform: String,
+}
+
 const SECTION: &str = "[TAGame.MatchStatsExporter_TA]";
 
 #[cfg(windows)]
@@ -390,6 +399,7 @@ pub fn set_ini_values(text: &str, values: &[(&str, String)]) -> String {
 
 pub fn read_status(install_dir: &str, documents_dir: Option<&Path>) -> Value {
     let installs = detect_game_installations();
+    let running_info = get_running_rocket_league_info();
     let norm_cur = install_dir.trim().to_lowercase();
     let epic_norm = installs.epic.as_ref().map(|s| s.trim().to_lowercase());
     let steam_norm = installs.steam.as_ref().map(|s| s.trim().to_lowercase());
@@ -411,6 +421,7 @@ pub fn read_status(install_dir: &str, documents_dir: Option<&Path>) -> Value {
             "files": [],
             "installs": installs,
             "activePlatform": active_platform,
+            "runningGame": running_info,
         });
     }
     let files: Vec<Value> = target_files(install_dir, documents_dir)
@@ -431,6 +442,7 @@ pub fn read_status(install_dir: &str, documents_dir: Option<&Path>) -> Value {
         "files": files,
         "installs": installs,
         "activePlatform": active_platform,
+        "runningGame": running_info,
     })
 }
 
@@ -439,13 +451,14 @@ pub fn enable_stats_api(install_dir: &str, documents_dir: Option<&Path>, packet_
     let installs = detect_game_installations();
     let mut all_dirs = vec![install_dir.to_string()];
     if let Some(e) = installs.epic {
-        if !all_dirs.iter().any(|d| d.eq_ignore_ascii_case(&e)) {
-            all_dirs.push(e);
-        }
+        all_dirs.push(e);
     }
     if let Some(s) = installs.steam {
-        if !all_dirs.iter().any(|d| d.eq_ignore_ascii_case(&s)) {
-            all_dirs.push(s);
+        all_dirs.push(s);
+    }
+    if let Some(info) = get_running_rocket_league_info() {
+        if let Some(dir) = info.install_dir {
+            all_dirs.push(dir);
         }
     }
 
@@ -518,6 +531,99 @@ pub fn is_rocket_league_running() -> bool {
         CloseHandle(snapshot);
         found
     }
+}
+
+/// Récupère le chemin d'exécution et la plateforme de Rocket League lorsqu'il tourne (comme BakkesMod).
+#[cfg(windows)]
+pub fn get_running_rocket_league_info() -> Option<RunningGameInfo> {
+    #[repr(C)]
+    struct PROCESSENTRY32W {
+        dw_size: u32,
+        cnt_usage: u32,
+        th32_process_id: u32,
+        th32_default_heap_id: usize,
+        th32_module_id: u32,
+        cnt_threads: u32,
+        th32_parent_process_id: u32,
+        pc_pri_class_base: i32,
+        dw_flags: u32,
+        sz_exe_file: [u16; 260],
+    }
+
+    extern "system" {
+        fn CreateToolhelp32Snapshot(dw_flags: u32, th32_process_id: u32) -> *mut std::ffi::c_void;
+        fn Process32FirstW(h_snapshot: *mut std::ffi::c_void, lppe: *mut PROCESSENTRY32W) -> i32;
+        fn Process32NextW(h_snapshot: *mut std::ffi::c_void, lppe: *mut PROCESSENTRY32W) -> i32;
+        fn OpenProcess(dw_desired_access: u32, b_inherit_handle: i32, dw_process_id: u32) -> *mut std::ffi::c_void;
+        fn QueryFullProcessImageNameW(h_process: *mut std::ffi::c_void, dw_flags: u32, lp_exe_name: *mut u16, lpdw_size: *mut u32) -> i32;
+        fn CloseHandle(h_object: *mut std::ffi::c_void) -> i32;
+    }
+
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(0x00000002 /* TH32CS_SNAPPROCESS */, 0);
+        if snapshot.is_null() || snapshot as isize == -1 {
+            return None;
+        }
+
+        let mut entry = std::mem::zeroed::<PROCESSENTRY32W>();
+        entry.dw_size = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+
+        let mut found_pid: Option<u32> = None;
+        if Process32FirstW(snapshot, &mut entry) != 0 {
+            loop {
+                let len = entry.sz_exe_file.iter().position(|&c| c == 0).unwrap_or(entry.sz_exe_file.len());
+                let exe = String::from_utf16_lossy(&entry.sz_exe_file[..len]).to_lowercase();
+                if exe == "rocketleague.exe" {
+                    found_pid = Some(entry.th32_process_id);
+                    break;
+                }
+                if Process32NextW(snapshot, &mut entry) == 0 {
+                    break;
+                }
+            }
+        }
+        CloseHandle(snapshot);
+
+        let pid = found_pid?;
+        let handle = OpenProcess(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */, 0, pid);
+        if handle.is_null() {
+            return None;
+        }
+
+        let mut path_buf = [0u16; 1024];
+        let mut size = path_buf.len() as u32;
+        let success = QueryFullProcessImageNameW(handle, 0, path_buf.as_mut_ptr(), &mut size);
+        CloseHandle(handle);
+
+        if success != 0 && size > 0 {
+            let full_exe_path = String::from_utf16_lossy(&path_buf[..size as usize]);
+            let path_lower = full_exe_path.to_lowercase();
+            let platform = if path_lower.contains("steam") {
+                "steam".to_string()
+            } else if path_lower.contains("epic") {
+                "epic".to_string()
+            } else {
+                "unknown".to_string()
+            };
+
+            let exe_path_buf = PathBuf::from(&full_exe_path);
+            let install_dir = normalize_install_dir(&exe_path_buf)
+                .map(|p| p.to_string_lossy().into_owned());
+
+            return Some(RunningGameInfo {
+                pid,
+                exe_path: full_exe_path,
+                install_dir,
+                platform,
+            });
+        }
+        None
+    }
+}
+
+#[cfg(not(windows))]
+pub fn get_running_rocket_league_info() -> Option<RunningGameInfo> {
+    None
 }
 
 /// Vérifie si la fenêtre active au premier plan appartient à Rocket League.

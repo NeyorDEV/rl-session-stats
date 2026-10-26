@@ -480,6 +480,17 @@ async fn statsapi_select_platform(app: AppHandle, platform: String) -> Value {
 
 #[tauri::command]
 async fn detect_player_now(app: AppHandle) -> Value {
+    if let Some(info) = rl_config::get_running_rocket_league_info() {
+        let ctx = app.state::<Ctx>();
+        let mut c = ctx.core.lock().unwrap();
+        if let Some(ref dir) = info.install_dir {
+            c.store.update(json!({ "statsApi": { "installDir": dir } }));
+        }
+        if info.platform == "epic" || info.platform == "steam" {
+            c.store.update(json!({ "player": { "platform": info.platform } }));
+        }
+    }
+
     let docs = app.state::<Ctx>().core.lock().unwrap().documents_dir.clone();
     if let Some(player) = rl_config::detect_player_from_logs(docs.as_deref()) {
         {
@@ -1268,26 +1279,47 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                     let running_now = rl_config::is_rocket_league_running();
                     if running_now && !was_running {
                         was_running = true;
-                        {
-                            let ctx = app.state::<Ctx>();
-                            ctx.core.lock().unwrap().log("Rocket League détecté");
-                        }
                         let h = app.clone();
                         tauri::async_runtime::spawn(async move {
-                            // Attente de 2.5s pour laisser Rocket League démarrer et écrire Launch.log
-                            std::thread::sleep(Duration::from_millis(2500));
+                            // Détection automatique de la plateforme d'où Rocket League a été lancé (style BakkesMod)
+                            let mut detected_platform = None;
+                            if let Some(info) = rl_config::get_running_rocket_league_info() {
+                                let plat_str = info.platform.clone();
+                                let target_dir = info.install_dir.clone();
+                                {
+                                    let ctx = h.state::<Ctx>();
+                                    let mut c = ctx.core.lock().unwrap();
+                                    if let Some(ref dir) = target_dir {
+                                        c.store.update(json!({ "statsApi": { "installDir": dir } }));
+                                    }
+                                    if plat_str == "epic" || plat_str == "steam" {
+                                        c.store.update(json!({ "player": { "platform": plat_str } }));
+                                        detected_platform = Some(plat_str.clone());
+                                    }
+                                    let display_name = if plat_str == "steam" { "Steam" } else if plat_str == "epic" { "Epic Games" } else { "Processus" };
+                                    c.log(&format!("Rocket League d\u{e9}tect\u{e9} via {} : {}", display_name, target_dir.as_deref().unwrap_or(&info.exe_path)));
+                                }
+                                publish(&h);
+                            } else {
+                                let ctx = h.state::<Ctx>();
+                                ctx.core.lock().unwrap().log("Rocket League d\u{e9}tect\u{e9}");
+                            }
+
+                            // Attente de 2.0s pour laisser Rocket League démarrer et écrire Launch.log
+                            std::thread::sleep(Duration::from_millis(2000));
                             let docs = h.state::<Ctx>().core.lock().unwrap().documents_dir.clone();
                             if let Some(player) = rl_config::detect_player_from_logs(docs.as_deref()) {
                                 {
                                     let ctx = h.state::<Ctx>();
                                     let mut c = ctx.core.lock().unwrap();
+                                    let final_plat = detected_platform.unwrap_or(player.platform);
                                     c.store.update(json!({
                                         "player": {
-                                            "platform": player.platform,
+                                            "platform": final_plat,
                                             "customName": player.name
                                         }
                                     }));
-                                    c.log(&format!("Profil joueur actualisé : {} ({})", player.name, player.platform));
+                                    c.log(&format!("Profil joueur actualis\u{e9} : {} ({})", player.name, final_plat));
                                 }
                                 publish(&h);
                             }

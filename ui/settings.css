@@ -1042,82 +1042,95 @@ input[type="text"] { width: 100%; }
 .update-status-text.found { color: var(--blue); font-weight: 600; }
 .update-status-text.error { color: var(--orange); }
 
-/* --- Grille de sélection des emplacements Epic / Steam --- */
-.install-targets-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.install-target-card {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px;
+/* --- Boîte de détection automatique de la plateforme (style BakkesMod) --- */
+.auto-platform-box {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.install-target-card:hover {
-  background: var(--panel-2);
-  border-color: rgba(69, 148, 255, 0.4);
-}
-
-.install-target-card.active {
-  background: linear-gradient(135deg, rgba(18, 96, 176, 0.35) 0%, rgba(54, 169, 255, 0.12) 100%);
-  border-color: var(--blue);
-  box-shadow: 0 0 12px rgba(54, 169, 255, 0.2);
-}
-
-.install-target-card.disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.install-target-card input[type="radio"] {
-  margin-top: 3px;
-  accent-color: var(--blue);
-  cursor: pointer;
-}
-
-.install-target-body {
-  flex: 1;
-  min-width: 0;
+  padding: 14px 16px;
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
 }
 
-.install-target-header {
+.auto-platform-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.auto-platform-status {
+  display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.install-platform-title {
-  font-size: 14px;
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #718096;
+  box-shadow: 0 0 6px rgba(113, 128, 150, 0.4);
+  transition: all 0.3s ease;
+}
+
+.status-indicator.running {
+  background: #2ecc71;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.7);
+}
+
+.auto-platform-status-text {
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
 }
 
-.install-target-path {
-  font-family: Consolas, monospace;
+.auto-platform-details {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.detected-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.detected-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 11px;
+}
+
+.detected-summary-item .plat-name {
+  font-weight: 700;
+  color: #d8e5f5;
+  min-width: 80px;
+}
+
+.detected-summary-item .plat-path {
+  flex: 1;
+  font-family: Consolas, monospace;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
 }
 
-.install-target-card.active .install-target-path {
-  color: #e0eeff;
+.detected-summary-item.active .plat-name {
+  color: var(--blue);
+}
+
+.detected-summary-item.active .plat-path {
+  color: #fff;
+  font-weight: 600;
 }
 
 .badge-detected {

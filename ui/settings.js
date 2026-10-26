@@ -721,54 +721,53 @@ function renderApi(result) {
     dir.classList.toggle('missing', !api.valid);
   }
 
-  // Double détection Epic / Steam
+  // Détection automatique BakkesMod (Epic / Steam)
   const installs = api.installs || {};
-  const activePlat = api.activePlatform || 'none';
+  const running = api.runningGame;
+  const isRunning = !!api.rlRunning;
 
-  // Epic
+  const dot = $('gameRunningDot');
+  const statusText = $('gameRunningStatus');
+  const details = $('autoPlatformDetails');
+
+  if (dot) dot.classList.toggle('running', isRunning);
+
+  if (statusText) {
+    if (running && running.platform) {
+      const platName = running.platform === 'steam' ? 'Steam' : (running.platform === 'epic' ? 'Epic Games' : 'Processus');
+      statusText.textContent = `Rocket League actif via ${platName}`;
+      if (details) details.textContent = `Emplacement détecté : ${running.installDir || running.exePath}`;
+    } else if (isRunning) {
+      statusText.textContent = 'Rocket League en cours d\'exécution';
+      if (details) details.textContent = 'L\'overlay est connecté et synchronise les données en direct.';
+    } else {
+      statusText.textContent = 'En attente du lancement de Rocket League…';
+      if (details) details.textContent = 'L\'overlay détectera automatiquement si vous lancez Rocket League depuis Epic Games ou Steam.';
+    }
+  }
+
+  // Résumé Epic
   const epicPath = installs.epic;
-  const pathEpicEl = $('pathInstallEpic');
-  const badgeEpicEl = $('badgeInstallEpic');
-  const radioEpicEl = $('radioInstallEpic');
-  const cardEpicEl = $('installCardEpic');
-  if (pathEpicEl) pathEpicEl.textContent = epicPath || 'Non détecté sur cette machine';
-  if (badgeEpicEl) {
-    badgeEpicEl.textContent = epicPath ? 'Détecté' : 'Non détecté';
-    badgeEpicEl.className = epicPath ? 'badge-detected' : 'badge-missing';
+  if ($('summaryPathEpic')) $('summaryPathEpic').textContent = epicPath || 'Non détecté sur cette machine';
+  if ($('summaryBadgeEpic')) {
+    $('summaryBadgeEpic').textContent = epicPath ? 'Prêt' : 'Non détecté';
+    $('summaryBadgeEpic').className = epicPath ? 'badge badge-detected' : 'badge badge-missing';
   }
-  if (radioEpicEl) {
-    radioEpicEl.checked = activePlat === 'epic';
-    radioEpicEl.disabled = !epicPath;
-  }
-  if (cardEpicEl) {
-    cardEpicEl.classList.toggle('active', activePlat === 'epic');
-    cardEpicEl.classList.toggle('disabled', !epicPath);
-  }
+  $('summaryEpic')?.classList.toggle('active', running?.platform === 'epic');
 
-  // Steam
+  // Résumé Steam
   const steamPath = installs.steam;
-  const pathSteamEl = $('pathInstallSteam');
-  const badgeSteamEl = $('badgeInstallSteam');
-  const radioSteamEl = $('radioInstallSteam');
-  const cardSteamEl = $('installCardSteam');
-  if (pathSteamEl) pathSteamEl.textContent = steamPath || 'Non détecté sur cette machine';
-  if (badgeSteamEl) {
-    badgeSteamEl.textContent = steamPath ? 'Détecté' : 'Non détecté';
-    badgeSteamEl.className = steamPath ? 'badge-detected' : 'badge-missing';
+  if ($('summaryPathSteam')) $('summaryPathSteam').textContent = steamPath || 'Non détecté sur cette machine';
+  if ($('summaryBadgeSteam')) {
+    $('summaryBadgeSteam').textContent = steamPath ? 'Prêt' : 'Non détecté';
+    $('summaryBadgeSteam').className = steamPath ? 'badge badge-detected' : 'badge badge-missing';
   }
-  if (radioSteamEl) {
-    radioSteamEl.checked = activePlat === 'steam';
-    radioSteamEl.disabled = !steamPath;
-  }
-  if (cardSteamEl) {
-    cardSteamEl.classList.toggle('active', activePlat === 'steam');
-    cardSteamEl.classList.toggle('disabled', !steamPath);
-  }
+  $('summarySteam')?.classList.toggle('active', running?.platform === 'steam');
 
   // Notice pour dossier personnalisé
   const customNotice = $('customInstallNotice');
   if (customNotice) {
-    customNotice.style.display = activePlat === 'custom' ? 'block' : 'none';
+    customNotice.style.display = api.activePlatform === 'custom' ? 'block' : 'none';
   }
 
   $('enableApi').textContent = api.enabled ? 'Réappliquer le réglage' : 'Activer la Stats API';
@@ -1000,25 +999,6 @@ function bind() {
   });
   $('detect').addEventListener('click', async () => renderApi(await app.detectInstall()));
   $('choose').addEventListener('click', async () => renderApi(await app.chooseInstall()));
-
-  // Clic ou changement sur les cartes Epic / Steam
-  $('radioInstallEpic')?.addEventListener('change', async () => {
-    renderApi(await app.selectInstallPlatform('epic'));
-  });
-  $('installCardEpic')?.addEventListener('click', async (e) => {
-    if (e.target.tagName !== 'INPUT' && api?.installs?.epic) {
-      renderApi(await app.selectInstallPlatform('epic'));
-    }
-  });
-
-  $('radioInstallSteam')?.addEventListener('change', async () => {
-    renderApi(await app.selectInstallPlatform('steam'));
-  });
-  $('installCardSteam')?.addEventListener('click', async (e) => {
-    if (e.target.tagName !== 'INPUT' && api?.installs?.steam) {
-      renderApi(await app.selectInstallPlatform('steam'));
-    }
-  });
 
   $('enableApi').addEventListener('click', async () => {
     const btn = $('enableApi');

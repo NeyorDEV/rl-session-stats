@@ -337,4 +337,5 @@ fn detect_installations_structure() {
     // Doit renvoyer une structure DetectedInstalls valide sans paniquer
     let _ = installs.epic;
     let _ = installs.steam;
+    let _info = rl_config::get_running_rocket_league_info();
 }
