@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
+const pkg = require(path.join(rootDir, 'package.json'));
+const currentVersion = pkg.version;
 const outDir = path.join(rootDir, 'build-output', 'RL-Session-Stats-Windows');
 const targetRelease = path.join(rootDir, 'src-tauri', 'target', 'release');
 const nsisDir = path.join(targetRelease, 'bundle', 'nsis');
@@ -37,15 +39,21 @@ if (fs.existsSync(portableSrc)) {
   }
 }
 
-// Copier l'installeur NSIS
+// Copier uniquement l'installeur NSIS correspondant à la version courante
 if (fs.existsSync(nsisDir)) {
-  for (const file of fs.readdirSync(nsisDir)) {
-    if (file.endsWith('.exe')) {
-      const src = path.join(nsisDir, file);
-      const dest = path.join(outDir, file);
-      fs.copyFileSync(src, dest);
-      console.log(`Copie setup NSIS : ${dest}`);
-    }
+  const files = fs.readdirSync(nsisDir).filter((f) => f.endsWith('.exe'));
+  let targetFile = files.find((f) => f.includes(`_${currentVersion}_`));
+  if (!targetFile && files.length > 0) {
+    targetFile = files
+      .map((f) => ({ name: f, time: fs.statSync(path.join(nsisDir, f)).mtimeMs }))
+      .sort((a, b) => b.time - a.time)[0].name;
+  }
+
+  if (targetFile) {
+    const src = path.join(nsisDir, targetFile);
+    const dest = path.join(outDir, targetFile);
+    fs.copyFileSync(src, dest);
+    console.log(`Copie setup NSIS (version courante ${currentVersion}) : ${dest}`);
   }
 }
 
