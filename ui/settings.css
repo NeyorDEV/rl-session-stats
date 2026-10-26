@@ -535,6 +535,76 @@ input[type="text"] { width: 100%; }
   border-radius: 3px;
 }
 
+/* Ventilation par mode / playlist dans l'historique */
+.hist-playlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  width: 100%;
+}
+.hist-playlist-pill {
+  background: rgba(13, 24, 43, 0.7);
+  border: 1px solid rgba(80, 150, 255, 0.25);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.hist-playlist-pill:hover {
+  background: rgba(20, 36, 64, 0.85);
+  border-color: rgba(80, 150, 255, 0.5);
+  transform: translateY(-1px);
+}
+.hist-playlist-pill.active {
+  background: rgba(31, 111, 235, 0.25);
+  border-color: #388bfd;
+  box-shadow: 0 0 12px rgba(56, 139, 253, 0.35);
+}
+.hpp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+}
+.hpp-games {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.hpp-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+  font-weight: 800;
+  margin-top: 2px;
+}
+.hpp-record {
+  color: #eef3ff;
+  font-variant-numeric: tabular-nums;
+}
+.hpp-record small {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-left: 4px;
+}
+.hpp-mmr {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 800;
+}
+.hpp-mmr.pos { color: #38ef7d; }
+.hpp-mmr.neg { color: #ff6b6b; }
+.hpp-mmr.nul { color: var(--muted); }
+
 /* ------------------------------------------------------------------ */
 /* Cartes de paramètres & Nouveau design Overlay                      */
 /* ------------------------------------------------------------------ */

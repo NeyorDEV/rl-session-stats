@@ -398,6 +398,7 @@ function renderSession() {
 
 let selectedSessionId = 'current';
 let selectedAccountFilter = 'all';
+let selectedPlaylistFilter = 'all';
 
 function renderSessionSelector() {
   const sel = $('sessionHistorySelect');
@@ -507,16 +508,110 @@ function updateHistoryView() {
       : `Matchs enregistrés (${new Date(activeSession.startedAt).toLocaleDateString('fr-FR')})`;
   }
 
-  renderHistoryAndChart(activeSession);
+  renderPlaylistsBreakdown(activeSession);
+  renderHistoryAndChart(activeSession, selectedPlaylistFilter);
 }
 
-function renderHistoryAndChart(s) {
+function renderPlaylistsBreakdown(s) {
+  const container = $('sessionPlaylistsBreakdown');
+  if (!container) return;
+
+  const matches = s.recent || [];
+  const statsMap = new Map();
+  for (const m of matches) {
+    const pl = m.playlist || 'Match';
+    if (!statsMap.has(pl)) {
+      statsMap.set(pl, { name: pl, games: 0, wins: 0, losses: 0, netMmr: 0.0 });
+    }
+    const item = statsMap.get(pl);
+    item.games += 1;
+    if (m.won) item.wins += 1; else item.losses += 1;
+    item.netMmr += Number(m.mmrChange || 0);
+  }
+
+  if (s.playlists && typeof s.playlists === 'object') {
+    for (const key of Object.keys(s.playlists)) {
+      const p = s.playlists[key];
+      if (p && p.games > 0 && !statsMap.has(p.name)) {
+        statsMap.set(p.name, {
+          name: p.name,
+          games: Number(p.games || 0),
+          wins: Number(p.wins || 0),
+          losses: Number(p.losses || 0),
+          netMmr: Number(p.sessionMmrChange || 0),
+        });
+      }
+    }
+  }
+
+  if (statsMap.size === 0) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+
+  container.style.display = 'grid';
+  container.innerHTML = '';
+
+  const totalGames = Number(s.games || matches.length);
+  const totalWins = Number(s.wins || 0);
+  const totalLosses = Number(s.losses || 0);
+  const totalMmr = Number(s.sessionMmrChange || 0);
+  const allCard = document.createElement('div');
+  allCard.className = `hist-playlist-pill ${selectedPlaylistFilter === 'all' ? 'active' : ''}`;
+  allCard.innerHTML = `
+    <div class="hpp-head">
+      <span>Tous les modes</span>
+      <span class="hpp-games">${totalGames} match${totalGames > 1 ? 's' : ''}</span>
+    </div>
+    <div class="hpp-body">
+      <span class="hpp-record">${totalWins}V - ${totalLosses}D</span>
+      <span class="hpp-mmr ${totalMmr > 0 ? 'pos' : totalMmr < 0 ? 'neg' : 'nul'}">${(totalMmr >= 0 ? '+' : '') + totalMmr.toFixed(1)} MMR</span>
+    </div>
+  `;
+  allCard.addEventListener('click', () => {
+    selectedPlaylistFilter = 'all';
+    updateHistoryView();
+  });
+  container.appendChild(allCard);
+
+  for (const [plName, p] of statsMap.entries()) {
+    const card = document.createElement('div');
+    const isAct = selectedPlaylistFilter === plName;
+    card.className = `hist-playlist-pill ${isAct ? 'active' : ''}`;
+    const winrate = p.games > 0 ? Math.round((100 * p.wins) / p.games) : 0;
+    const deltaStr = (p.netMmr >= 0 ? '+' : '') + p.netMmr.toFixed(1);
+    const mmrClass = p.netMmr > 0 ? 'pos' : p.netMmr < 0 ? 'neg' : 'nul';
+
+    card.innerHTML = `
+      <div class="hpp-head">
+        <span>${plName}</span>
+        <span class="hpp-games">${p.games} match${p.games > 1 ? 's' : ''}</span>
+      </div>
+      <div class="hpp-body">
+        <span class="hpp-record">${p.wins}V - ${p.losses}D <small>(${winrate}%)</small></span>
+        <span class="hpp-mmr ${mmrClass}">${deltaStr} MMR</span>
+      </div>
+    `;
+    card.addEventListener('click', () => {
+      selectedPlaylistFilter = isAct ? 'all' : plName;
+      updateHistoryView();
+    });
+    container.appendChild(card);
+  }
+}
+
+function renderHistoryAndChart(s, filterPl) {
   const list = $('historyMatchList');
   const svg = $('mmrSvg');
   const summary = $('chartSummary');
   if (!list || !svg) return;
 
-  const matches = s.recent || [];
+  const allMatches = s.recent || [];
+  const matches = (filterPl && filterPl !== 'all')
+    ? allMatches.filter(m => (m.playlist || 'Match') === filterPl)
+    : allMatches;
+
   const startMmr = Number(s.startingMmr || (s.currentMmr - (s.sessionMmrChange || 0)) || 855);
 
   const mmrPoints = [startMmr];
@@ -528,9 +623,20 @@ function renderHistoryAndChart(s) {
 
   const minMmr = Math.min(...mmrPoints);
   const maxMmr = Math.max(...mmrPoints);
-  const deltaNet = Number(s.sessionMmrChange || 0);
+  const deltaNet = matches.reduce((acc, m) => acc + Number(m.mmrChange || 0), 0);
+  const filterWins = matches.filter(m => m.won).length;
+  const filterLosses = matches.filter(m => !m.won).length;
 
-  summary.textContent = `${matches.length} match${matches.length > 1 ? 's' : ''} • Net : ${(deltaNet >= 0 ? '+' : '') + deltaNet.toFixed(1)} MMR (Pic : ${maxMmr.toFixed(1)}, Creux : ${minMmr.toFixed(1)})`;
+  const filterText = (filterPl && filterPl !== 'all') ? ` en ${filterPl}` : '';
+  summary.textContent = `${matches.length} match${matches.length > 1 ? 's' : ''}${filterText} • Net : ${(deltaNet >= 0 ? '+' : '') + deltaNet.toFixed(1)} MMR (${filterWins}V - ${filterLosses}D)`;
+
+  const isCurrent = selectedSessionId === 'current';
+  if ($('matchesHeaderTitle')) {
+    const filterTag = (filterPl && filterPl !== 'all') ? ` [${filterPl}]` : '';
+    $('matchesHeaderTitle').textContent = isCurrent
+      ? `Matchs de la session en cours${filterTag}`
+      : `Matchs enregistrés${filterTag} (${new Date(s.startedAt).toLocaleDateString('fr-FR')})`;
+  }
 
   const W = 580;
   const H = 130;

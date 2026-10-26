@@ -202,6 +202,7 @@ impl Core {
             "rankTier": s.rank_tier,
             "focusedPlaylist": s.focused_playlist,
             "recent": s.recent,
+            "playlists": s.playlists,
             "playerName": player_name,
             "platform": platform,
             "playerId": p.detected_id.clone()
