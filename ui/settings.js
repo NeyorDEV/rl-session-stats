@@ -385,25 +385,59 @@ function renderSession() {
 }
 
 let selectedSessionId = 'current';
+let selectedAccountFilter = 'all';
 
 function renderSessionSelector() {
   const sel = $('sessionHistorySelect');
+  const filterSel = $('sessionAccountFilter');
   if (!sel) return;
 
   const history = S.history || [];
   const currentVal = selectedSessionId;
+  const currentFilter = selectedAccountFilter;
+
+  // Récupération des comptes uniques présents dans l'historique + compte actuel
+  if (filterSel) {
+    const accounts = new Set();
+    const curP = S.settings?.player?.customName || S.settings?.player?.detectedName;
+    if (curP) accounts.add(curP);
+    for (const h of history) {
+      if (h.playerName) accounts.add(h.playerName);
+    }
+
+    if (accounts.size > 0) {
+      filterSel.style.display = 'inline-block';
+      filterSel.innerHTML = '<option value="all">Tous les comptes</option>';
+      for (const acc of Array.from(accounts).sort()) {
+        const opt = document.createElement('option');
+        opt.value = acc;
+        opt.textContent = acc;
+        filterSel.appendChild(opt);
+      }
+      filterSel.value = accounts.has(currentFilter) ? currentFilter : 'all';
+      selectedAccountFilter = filterSel.value;
+    } else {
+      filterSel.style.display = 'none';
+    }
+  }
+
   sel.innerHTML = '';
 
-  const optCur = document.createElement('option');
-  optCur.value = 'current';
   const cS = S.session || {};
-  const cDelta = Number(cS.sessionMmrChange || 0);
-  const cDeltaStr = (cDelta >= 0 ? '+' : '') + cDelta.toFixed(1);
-  optCur.textContent = `Session en cours (Aujourd'hui) • ${cDeltaStr} MMR (${cS.wins || 0}V - ${cS.losses || 0}D)`;
-  sel.appendChild(optCur);
+  const curPName = S.settings?.player?.customName || S.settings?.player?.detectedName || '';
+  if (selectedAccountFilter === 'all' || selectedAccountFilter === curPName) {
+    const optCur = document.createElement('option');
+    optCur.value = 'current';
+    const cDelta = Number(cS.sessionMmrChange || 0);
+    const cDeltaStr = (cDelta >= 0 ? '+' : '') + cDelta.toFixed(1);
+    const badge = curPName ? ` [${curPName}]` : '';
+    optCur.textContent = `Session en cours${badge} (Aujourd'hui) • ${cDeltaStr} MMR (${cS.wins || 0}V - ${cS.losses || 0}D)`;
+    sel.appendChild(optCur);
+  }
 
   for (const item of history) {
     if (String(item.id) === String(cS.startedAt)) continue;
+    if (selectedAccountFilter !== 'all' && item.playerName && item.playerName !== selectedAccountFilter) continue;
     const opt = document.createElement('option');
     opt.value = item.id;
     const d = new Date(item.startedAt);
@@ -411,12 +445,13 @@ function renderSessionSelector() {
     const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const delta = Number(item.sessionMmrChange || 0);
     const deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(1);
-    opt.textContent = `${dateStr} à ${timeStr} • ${deltaStr} MMR (${item.wins || 0}V - ${item.losses || 0}D)`;
+    const pTag = item.playerName ? ` • ${item.playerName}` : '';
+    opt.textContent = `${dateStr} à ${timeStr}${pTag} • ${deltaStr} MMR (${item.wins || 0}V - ${item.losses || 0}D)`;
     sel.appendChild(opt);
   }
 
   const exists = Array.from(sel.options).some(o => o.value === currentVal);
-  sel.value = exists ? currentVal : 'current';
+  sel.value = exists ? currentVal : (sel.options[0]?.value || 'current');
   selectedSessionId = sel.value;
 }
 
@@ -646,6 +681,7 @@ function renderForm() {
   setPressed($('countMode'), c.mode);
   $('customPlaylists').hidden = c.mode !== 'custom';
   renderPlaylistChecklist();
+  if ($('autoSwitchPlaylist')) $('autoSwitchPlaylist').checked = c.autoSwitchPlaylist !== false;
   $('onlineOnly').checked = !!c.onlineOnly;
   $('countLeave').checked = !!c.countLeaveAsLoss;
   $('resetOnStart').checked = !!c.resetOnStart;
@@ -988,6 +1024,7 @@ function bind() {
     const v = e.target.closest('button')?.dataset.value;
     if (v) save({ counting: { mode: v } });
   });
+  $('autoSwitchPlaylist')?.addEventListener('change', (e) => save({ counting: { autoSwitchPlaylist: e.target.checked } }));
   $('onlineOnly').addEventListener('change', (e) => save({ counting: { onlineOnly: e.target.checked } }));
   $('countLeave').addEventListener('change', (e) => save({ counting: { countLeaveAsLoss: e.target.checked } }));
   $('resetOnStart').addEventListener('change', (e) => save({ counting: { resetOnStart: e.target.checked } }));
@@ -1077,6 +1114,13 @@ function bind() {
     $('autostartWindows').addEventListener('change', async (e) => {
       await app.setAutostart(e.target.checked);
       flashSaved('Démarrage Windows mis à jour');
+    });
+  }
+
+  if ($('sessionAccountFilter')) {
+    $('sessionAccountFilter').addEventListener('change', (e) => {
+      selectedAccountFilter = e.target.value;
+      updateHistoryView();
     });
   }
 

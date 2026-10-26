@@ -13,7 +13,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
 fn rules() -> CountRules {
-    CountRules { online_only: true, mode: "all".into(), playlists: vec![], count_leave_as_loss: true, mmr_delta: 9.0, focused_playlist: "2v2".into() }
+    CountRules { online_only: true, mode: "all".into(), playlists: vec![], count_leave_as_loss: true, mmr_delta: 9.0, focused_playlist: "2v2".into(), auto_switch_playlist: true }
 }
 
 fn tick(guid: &str, winner: &str) -> Value {
@@ -338,4 +338,38 @@ fn detect_installations_structure() {
     let _ = installs.epic;
     let _ = installs.steam;
     let _info = rl_config::get_running_rocket_league_info();
+}
+
+#[test]
+fn auto_switch_playlist_on_match_tick() {
+    let mut tracker = Tracker::new(Session::default());
+    assert_eq!(tracker.session.focused_playlist, "2v2");
+
+    // Simulation d'un match de 1v1 (PlaylistId = 10)
+    let d = json!({
+        "MatchGuid": "test-1v1",
+        "Players": [{ "Name": "Me", "PrimaryId": "Epic|me|0", "TeamNum": 0 }],
+        "Game": { "PlaylistId": 10, "Target": { "Name": "Me" } }
+    });
+    let r = rules();
+    let effects = tracker.handle("UpdateState", &d, Some("NAME:epic|Me"), &r);
+    assert_eq!(tracker.session.focused_playlist, "1v1");
+    assert!(effects.session_changed);
+
+    // Simulation d'un match de 3v3 (PlaylistId = 13)
+    let d3 = json!({
+        "MatchGuid": "test-3v3",
+        "Players": [{ "Name": "Me", "PrimaryId": "Epic|me|0", "TeamNum": 0 }],
+        "Game": { "PlaylistId": 13, "Target": { "Name": "Me" } }
+    });
+    let effects3 = tracker.handle("UpdateState", &d3, Some("NAME:epic|Me"), &r);
+    assert_eq!(tracker.session.focused_playlist, "3v3");
+    assert!(effects3.session_changed);
+}
+
+#[test]
+fn sanitize_account_keys() {
+    assert_eq!(crate::sanitize_account_key("Epic", "Neyor DEV"), "epic_Neyor_DEV");
+    assert_eq!(crate::sanitize_account_key("Steam", "Player_123"), "steam_Player_123");
+    assert_eq!(crate::sanitize_account_key("", ""), "default");
 }

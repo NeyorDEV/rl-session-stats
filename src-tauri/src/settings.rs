@@ -77,6 +77,7 @@ pub struct CountingSettings {
     pub reset_on_start: bool,
     pub reset_on_exit: bool,
     pub focused_playlist: String,
+    pub auto_switch_playlist: bool,
 }
 
 impl Default for CountingSettings {
@@ -89,6 +90,7 @@ impl Default for CountingSettings {
             reset_on_start: true,
             reset_on_exit: true,
             focused_playlist: "2v2".into(),
+            auto_switch_playlist: true,
         }
     }
 }

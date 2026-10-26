@@ -42,10 +42,28 @@ struct Core {
     connected: bool,
     overlay_size: (f64, f64),
     obs_dir: PathBuf,
+    data_dir: PathBuf,
     session_file: PathBuf,
     history_file: PathBuf,
     log_file: PathBuf,
     documents_dir: Option<PathBuf>,
+    current_player_key: String,
+}
+
+fn sanitize_account_key(platform: &str, name: &str) -> String {
+    let p = platform.trim().to_lowercase();
+    let n: String = name
+        .trim()
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+        .collect();
+    if n.is_empty() {
+        "default".to_string()
+    } else if p.is_empty() {
+        n
+    } else {
+        format!("{p}_{n}")
+    }
 }
 
 impl Core {
@@ -59,6 +77,7 @@ impl Core {
             count_leave_as_loss: c.count_leave_as_loss,
             mmr_delta: if o.mmr_delta > 0.0 { o.mmr_delta } else { 9.0 },
             focused_playlist: c.focused_playlist.clone(),
+            auto_switch_playlist: c.auto_switch_playlist,
         }
     }
 
@@ -94,6 +113,62 @@ impl Core {
             .unwrap_or_default()
     }
 
+    fn switch_account_if_needed(&mut self, new_platform: &str, new_name: &str, new_id: &str) -> bool {
+        if new_name.trim().is_empty() {
+            return false;
+        }
+        let new_key = sanitize_account_key(new_platform, new_name);
+        if self.current_player_key == new_key {
+            return false;
+        }
+
+        // Si une session avec des parties était en cours sur le compte précédent, on l'archive
+        if self.tracker.session.games > 0 {
+            self.archive_session(&self.tracker.session.clone());
+        }
+
+        // Sauvegarde de l'état de session sous l'ancienne clé
+        if !self.current_player_key.is_empty() {
+            let prev_file = self.data_dir.join(format!("session_{}.json", self.current_player_key));
+            if let Ok(text) = serde_json::to_string_pretty(&self.tracker.session) {
+                let _ = fs::write(&prev_file, text);
+            }
+        }
+
+        self.current_player_key = new_key.clone();
+        self.session_file = self.data_dir.join(format!("session_{new_key}.json"));
+
+        // Chargement de la session spécifique à ce compte ou réinitialisation propre
+        let loaded = fs::read_to_string(&self.session_file)
+            .ok()
+            .and_then(|t| serde_json::from_str::<Session>(&t).ok());
+
+        if let Some(s) = loaded {
+            self.tracker.session = s;
+        } else {
+            let mut s = Session::default();
+            s.focused_playlist = self.store.data.counting.focused_playlist.clone();
+            let (name, div, tier) = calculate_rank(s.current_mmr, &s.focused_playlist);
+            s.rank_name = name.to_string();
+            s.division = div;
+            s.rank_tier = tier;
+            self.tracker.session = s;
+        }
+
+        self.store.update(json!({
+            "player": {
+                "platform": new_platform,
+                "customName": new_name,
+                "detectedName": new_name,
+                "detectedId": new_id
+            }
+        }));
+
+        self.persist_session();
+        self.log(&format!("Changement de compte détecté : passage sur {new_name} ({new_platform})"));
+        true
+    }
+
     fn archive_session(&self, s: &Session) {
         if s.games == 0 {
             return;
@@ -101,6 +176,15 @@ impl Core {
         let mut list = self.load_history();
         let started_at = s.started_at;
         let ended_at = now_ms();
+        let p = &self.store.data.player;
+        let player_name = if !p.custom_name.is_empty() {
+            p.custom_name.clone()
+        } else if !p.detected_name.is_empty() {
+            p.detected_name.clone()
+        } else {
+            "Joueur".to_string()
+        };
+        let platform = if !p.platform.is_empty() { p.platform.clone() } else { "epic".to_string() };
         let record = json!({
             "id": format!("{started_at}"),
             "startedAt": started_at,
@@ -117,7 +201,10 @@ impl Core {
             "division": s.division,
             "rankTier": s.rank_tier,
             "focusedPlaylist": s.focused_playlist,
-            "recent": s.recent
+            "recent": s.recent,
+            "playerName": player_name,
+            "platform": platform,
+            "playerId": p.detected_id.clone()
         });
 
         if let Some(pos) = list.iter().position(|item| item["id"].as_str() == Some(&format!("{started_at}"))) {
@@ -480,29 +567,29 @@ async fn statsapi_select_platform(app: AppHandle, platform: String) -> Value {
 
 #[tauri::command]
 async fn detect_player_now(app: AppHandle) -> Value {
-    if let Some(info) = rl_config::get_running_rocket_league_info() {
+    let detected_plat = if let Some(info) = rl_config::get_running_rocket_league_info() {
         let ctx = app.state::<Ctx>();
         let mut c = ctx.core.lock().unwrap();
         if let Some(ref dir) = info.install_dir {
             c.store.update(json!({ "statsApi": { "installDir": dir } }));
         }
         if info.platform == "epic" || info.platform == "steam" {
-            c.store.update(json!({ "player": { "platform": info.platform } }));
+            Some(info.platform)
+        } else {
+            None
         }
-    }
+    } else {
+        None
+    };
 
     let docs = app.state::<Ctx>().core.lock().unwrap().documents_dir.clone();
     if let Some(player) = rl_config::detect_player_from_logs(docs.as_deref()) {
+        let final_plat = detected_plat.unwrap_or(player.platform);
         {
             let ctx = app.state::<Ctx>();
             let mut c = ctx.core.lock().unwrap();
-            c.store.update(json!({
-                "player": {
-                    "platform": player.platform,
-                    "customName": player.name
-                }
-            }));
-            c.log(&format!("Joueur d\u{e9}tect\u{e9} : {} ({})", player.name, player.platform));
+            c.switch_account_if_needed(&final_plat, &player.name, &player.id);
+            c.log(&format!("Joueur détecté : {} ({})", player.name, final_plat));
         }
         publish(&app);
         let h = app.clone();
@@ -511,7 +598,7 @@ async fn detect_player_now(app: AppHandle) -> Value {
         });
         json!({
             "success": true,
-            "platform": player.platform,
+            "platform": final_plat,
             "name": player.name,
             "id": player.id
         })
@@ -867,13 +954,43 @@ async fn perform_tracker_sync(app: AppHandle) -> Result<Value, String> {
     let rank_name = seg["stats"]["tier"]["metadata"]["name"].as_str().unwrap_or("Unranked");
     let division_name = seg["stats"]["division"]["metadata"]["name"].as_str().unwrap_or("Division I");
 
+    // Extraction et mise en cache des MMR pour chaque playlist classée disponible sur le profil
+    let mode_mappings = [
+        ("playlist-10", "Ranked Duel 1v1", "1v1"),
+        ("playlist-11", "Ranked Doubles 2v2", "2v2"),
+        ("playlist-13", "Ranked Standard 3v3", "3v3"),
+        ("playlist-27", "Hoops", "hoops"),
+        ("playlist-28", "Rumble", "rumble"),
+        ("playlist-29", "Dropshot", "dropshot"),
+        ("playlist-30", "Snowday", "snowday"),
+        ("playlist-34", "Tournament", "tournaments"),
+    ];
+
+    let mut all_ratings = std::collections::BTreeMap::new();
+    for s in &segments {
+        let seg_attr = s["attributes"]["playlist"].as_str().unwrap_or("");
+        let seg_n = s["metadata"]["name"].as_str().unwrap_or("");
+        let r = s["stats"]["rating"]["value"].as_f64().unwrap_or(0.0);
+        if r > 0.0 {
+            for (attr, name_hint, mode) in &mode_mappings {
+                if seg_attr == *attr || seg_n.contains(name_hint) {
+                    all_ratings.insert(mode.to_string(), r);
+                }
+            }
+        }
+    }
+
     if rating > 0.0 {
         {
             let ctx = app.state::<Ctx>();
             let mut c = ctx.core.lock().unwrap();
+            for (m, r) in all_ratings {
+                c.tracker.session.playlists_mmr.insert(m, r);
+            }
             let is_fresh_session = c.tracker.session.games == 0;
             let old_mmr = c.tracker.session.current_mmr;
             c.tracker.set_mmr(rating, &focus);
+            c.tracker.session.playlists_mmr.insert(focus.clone(), rating);
             if is_fresh_session {
                 c.tracker.session.session_mmr_change = 0.0;
                 c.tracker.session.last_match_mmr_change = 0.0;
@@ -1082,7 +1199,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(&data_dir)?;
     let log_file = data_dir.join("journal.txt");
     let _ = fs::write(&log_file, "");
-    let session_file = data_dir.join("session.json");
 
     let mut store = SettingsStore::load(data_dir.join("settings.json"));
     let documents_dir = app.path().document_dir().ok();
@@ -1102,6 +1218,18 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             }));
         }
     }
+
+    let initial_key = sanitize_account_key(&store.data.player.platform, &store.data.player.custom_name);
+    let session_file = if !initial_key.is_empty() && initial_key != "default" {
+        let p_file = data_dir.join(format!("session_{initial_key}.json"));
+        if p_file.exists() {
+            p_file
+        } else {
+            data_dir.join("session.json")
+        }
+    } else {
+        data_dir.join("session.json")
+    };
 
     let saved_mmr = fs::read_to_string(&session_file)
         .ok()
@@ -1144,10 +1272,12 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         connected: false,
         overlay_size: (320.0, 80.0),
         obs_dir: data_dir.join("obs"),
+        data_dir: data_dir.clone(),
         session_file,
         history_file,
         log_file,
         documents_dir,
+        current_player_key: initial_key,
     };
     core.persist_session();
     let core = Arc::new(Mutex::new(core));
@@ -1309,17 +1439,12 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                             std::thread::sleep(Duration::from_millis(2000));
                             let docs = h.state::<Ctx>().core.lock().unwrap().documents_dir.clone();
                             if let Some(player) = rl_config::detect_player_from_logs(docs.as_deref()) {
+                                let final_plat = detected_platform.unwrap_or(player.platform);
                                 {
                                     let ctx = h.state::<Ctx>();
                                     let mut c = ctx.core.lock().unwrap();
-                                    let final_plat = detected_platform.unwrap_or(player.platform);
-                                    c.store.update(json!({
-                                        "player": {
-                                            "platform": final_plat,
-                                            "customName": player.name
-                                        }
-                                    }));
-                                    c.log(&format!("Profil joueur actualis\u{e9} : {} ({})", player.name, final_plat));
+                                    c.switch_account_if_needed(&final_plat, &player.name, &player.id);
+                                    c.log(&format!("Profil joueur actualisé : {} ({})", player.name, final_plat));
                                 }
                                 publish(&h);
                             }

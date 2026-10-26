@@ -34,6 +34,20 @@ pub fn playlist_name(id: Option<i64>) -> String {
     }
 }
 
+pub fn playlist_id_to_mode(id: i64) -> Option<&'static str> {
+    match id {
+        10 => Some("1v1"),
+        11 => Some("2v2"),
+        13 => Some("3v3"),
+        27 => Some("hoops"),
+        28 => Some("rumble"),
+        29 => Some("dropshot"),
+        30 => Some("snowday"),
+        34 => Some("tournaments"),
+        _ => None,
+    }
+}
+
 pub fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
 }
@@ -187,6 +201,7 @@ pub struct Session {
     pub division: i64,
     pub rank_tier: i64,
     pub focused_playlist: String,
+    pub playlists_mmr: BTreeMap<String, f64>,
 }
 
 impl Default for Session {
@@ -210,6 +225,7 @@ impl Default for Session {
             division,
             rank_tier,
             focused_playlist: "2v2".into(),
+            playlists_mmr: BTreeMap::new(),
         }
     }
 }
@@ -231,6 +247,7 @@ pub struct CountRules {
     pub count_leave_as_loss: bool,
     pub mmr_delta: f64,
     pub focused_playlist: String,
+    pub auto_switch_playlist: bool,
 }
 
 impl Default for CountRules {
@@ -242,6 +259,7 @@ impl Default for CountRules {
             count_leave_as_loss: true,
             mmr_delta: 9.0,
             focused_playlist: "2v2".into(),
+            auto_switch_playlist: true,
         }
     }
 }
@@ -361,10 +379,31 @@ impl Tracker {
 
     pub fn update_focus(&mut self, focused_playlist: &str) {
         self.session.focused_playlist = focused_playlist.to_string();
+        if let Some(&saved) = self.session.playlists_mmr.get(focused_playlist) {
+            self.session.current_mmr = saved;
+        }
         let (name, div, tier) = calculate_rank(self.session.current_mmr, focused_playlist);
         self.session.rank_name = name.to_string();
         self.session.division = div;
         self.session.rank_tier = tier;
+    }
+
+    pub fn switch_playlist(&mut self, new_mode: &str, e: &mut Effects) {
+        if self.session.focused_playlist == new_mode {
+            return;
+        }
+        self.session.playlists_mmr.insert(self.session.focused_playlist.clone(), self.session.current_mmr);
+        self.session.focused_playlist = new_mode.to_string();
+        if let Some(&saved_mmr) = self.session.playlists_mmr.get(new_mode) {
+            self.session.current_mmr = saved_mmr;
+        }
+        let (name, div, tier) = calculate_rank(self.session.current_mmr, new_mode);
+        self.session.rank_name = name.to_string();
+        self.session.division = div;
+        self.session.rank_tier = tier;
+        e.session_changed = true;
+        e.status_changed = true;
+        e.logs.push(format!("Auto-switch mode : passage en {new_mode}"));
     }
 
     pub fn handle(&mut self, event: &str, d: &Value, identity: Option<&str>, rules: &CountRules) -> Effects {
@@ -380,7 +419,7 @@ impl Tracker {
                     e.status_changed = true;
                 }
             }
-            "UpdateState" => self.on_tick(d, identity, &mut e),
+            "UpdateState" => self.on_tick(d, identity, rules, &mut e),
             "StatfeedEvent" => self.on_stat(d),
             "MatchEnded" => {
                 let winner = d.get("WinnerTeamNum").and_then(Value::as_i64);
@@ -412,14 +451,25 @@ impl Tracker {
         self.current.as_mut().expect("match présent")
     }
 
-    fn on_tick(&mut self, d: &Value, identity: Option<&str>, e: &mut Effects) {
+    fn on_tick(&mut self, d: &Value, identity: Option<&str>, rules: &CountRules, e: &mut Effects) {
+        let playlist_id = d.get("Game").and_then(|g| g.get("PlaylistId")).and_then(Value::as_i64);
+        if rules.auto_switch_playlist {
+            if let Some(id) = playlist_id {
+                if let Some(mode) = playlist_id_to_mode(id) {
+                    if self.session.focused_playlist != mode {
+                        self.switch_playlist(mode, e);
+                    }
+                }
+            }
+        }
+
         let m = self.ensure_match(d);
         let null = Value::Null;
         let g = d.get("Game").unwrap_or(&null);
         let no_players = Vec::new();
         let players = d.get("Players").and_then(Value::as_array).unwrap_or(&no_players);
 
-        if let Some(id) = g.get("PlaylistId").and_then(Value::as_i64) {
+        if let Some(id) = playlist_id {
             m.playlist_id = Some(id);
         }
         if bool_of(g, "bHasWinner") {
@@ -517,9 +567,10 @@ impl Tracker {
 
         let delta = if won { rules.mmr_delta } else { -rules.mmr_delta };
         s.current_mmr = (s.current_mmr + delta).max(0.0);
+        s.playlists_mmr.insert(s.focused_playlist.clone(), s.current_mmr);
         s.session_mmr_change += delta;
         s.last_match_mmr_change = delta;
-        let (r_name, r_div, r_tier) = calculate_rank(s.current_mmr, &rules.focused_playlist);
+        let (r_name, r_div, r_tier) = calculate_rank(s.current_mmr, &s.focused_playlist);
         s.rank_name = r_name.to_string();
         s.division = r_div;
         s.rank_tier = r_tier;
