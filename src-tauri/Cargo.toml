@@ -1,6 +1,6 @@
 [package]
 name = "rl-session-stats"
-version = "1.3.6"
+version = "1.3.7"
 description = "Stats de session Rocket League via la Stats API officielle (compatible Easy Anti-Cheat)"
 edition = "2021"
 

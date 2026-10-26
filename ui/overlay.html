@@ -994,7 +994,15 @@
       document.body.style.visibility = display.enabled === false ? 'hidden' : 'visible';
     }
 
+    container.querySelectorAll('img').forEach((img) => {
+      if (!img.complete) {
+        img.addEventListener('load', reportSize, { once: true });
+      }
+    });
+
     reportSize();
+    setTimeout(reportSize, 100);
+    setTimeout(reportSize, 300);
   }
 
   let lastReportedW = 0;
@@ -1010,8 +1018,8 @@
       const maxW = Math.max(rect.width, elRect.width);
       const maxH = Math.max(rect.height, elRect.height);
       // Marge de confort pour padding (14px * 2) et box-shadow
-      const w = Math.ceil(maxW) + 38;
-      const h = Math.ceil(maxH) + 32;
+      const w = Math.ceil(maxW) + 44;
+      const h = Math.ceil(maxH) + 38;
       if (Math.abs(w - lastReportedW) >= 2 || Math.abs(h - lastReportedH) >= 2) {
         lastReportedW = w;
         lastReportedH = h;
@@ -1052,6 +1060,7 @@
     document.body.classList.add('app');
     if ('ResizeObserver' in window) new ResizeObserver(reportSize).observe(container);
     if (document.fonts) document.fonts.ready.then(reportSize);
+    window.addEventListener('load', reportSize);
     tauri.core.invoke('overlay_state').then(render);
     tauri.event.listen('overlay', (e) => render(e.payload));
   } else {

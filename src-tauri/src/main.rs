@@ -307,6 +307,7 @@ struct Ctx {
     web: WebServer,
     toggle_item: Mutex<Option<CheckMenuItem<Wry>>>,
     preview_overlay: Arc<AtomicBool>,
+    overlay_visible: Arc<AtomicBool>,
 }
 
 // ---------------------------------------------------------------------------
@@ -340,7 +341,18 @@ fn after_effects(app: &AppHandle, effects: Effects) {
         }
         if let Some((id, name)) = &effects.detected {
             let p = &c.store.data.player;
-            if p.primary_id.is_empty() && (p.detected_id != *id || p.detected_name != *name) {
+            let current_name = if !p.custom_name.trim().is_empty() {
+                p.custom_name.trim()
+            } else if !p.primary_id.trim().is_empty() {
+                p.primary_id.trim()
+            } else {
+                p.detected_name.trim()
+            };
+            if !name.trim().is_empty() && (current_name.is_empty() || !current_name.eq_ignore_ascii_case(name.trim())) {
+                let plat = c.store.data.player.platform.clone();
+                c.switch_account_if_needed(&plat, name, id);
+                c.log(&format!("Profil joueur synchronisé via la caméra de match : {} ({})", name, plat));
+            } else if p.detected_id != *id || p.detected_name != *name {
                 c.store.update(json!({ "player": { "detectedId": id, "detectedName": name } }));
             }
         }
@@ -368,15 +380,16 @@ fn after_effects(app: &AppHandle, effects: Effects) {
 // ---------------------------------------------------------------------------
 
 fn render_overlay_on_screen(app: &AppHandle) {
+    let ctx = app.state::<Ctx>();
     let Some(win) = app.get_webview_window("overlay") else { return };
     let (o, (w, h), is_preview) = {
-        let ctx = app.state::<Ctx>();
         let c = ctx.core.lock().unwrap();
         (c.store.data.overlay.clone(), c.overlay_size, ctx.preview_overlay.load(Ordering::Relaxed))
     };
     if !o.enabled && !is_preview {
         let _ = win.set_position(LogicalPosition::new(OFFSCREEN, OFFSCREEN));
         let _ = win.set_ignore_cursor_events(true);
+        ctx.overlay_visible.store(false, Ordering::Relaxed);
         return;
     }
     let Some(monitor) = win.primary_monitor().ok().flatten() else { return };
@@ -408,6 +421,7 @@ fn render_overlay_on_screen(app: &AppHandle) {
     let _ = win.set_position(LogicalPosition::new(x.round(), y.round()));
     let _ = win.set_always_on_top(true);
     let _ = win.set_ignore_cursor_events(!is_preview);
+    ctx.overlay_visible.store(true, Ordering::Relaxed);
 }
 
 fn hide_overlay(app: &AppHandle) {
@@ -415,6 +429,8 @@ fn hide_overlay(app: &AppHandle) {
         let _ = win.set_position(LogicalPosition::new(OFFSCREEN, OFFSCREEN));
         let _ = win.set_ignore_cursor_events(true);
     }
+    let ctx = app.state::<Ctx>();
+    ctx.overlay_visible.store(false, Ordering::Relaxed);
 }
 
 fn apply_overlay(app: &AppHandle) {
@@ -1101,17 +1117,22 @@ fn overlay_size(app: AppHandle, w: f64, h: f64) {
     if !(w.is_finite() && h.is_finite()) || w <= 0.0 || h <= 0.0 {
         return;
     }
-    let changed = {
+    let (changed, final_w, final_h) = {
         let ctx = app.state::<Ctx>();
         let mut c = ctx.core.lock().unwrap();
         let (cur_w, cur_h) = c.overlay_size;
+        let w = w.ceil();
+        let h = h.ceil();
         if (cur_w - w).abs() < 2.0 && (cur_h - h).abs() < 2.0 {
-            false
+            (false, cur_w, cur_h)
         } else {
-            c.overlay_size = (w.ceil(), h.ceil());
-            true
+            c.overlay_size = (w, h);
+            (true, w, h)
         }
     };
+    if let Some(win) = app.get_webview_window("overlay") {
+        let _ = win.set_size(LogicalSize::new(final_w, final_h));
+    }
     if changed {
         apply_overlay(&app);
     }
@@ -1271,7 +1292,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         store,
         tracker: Tracker::new(session),
         connected: false,
-        overlay_size: (320.0, 80.0),
+        overlay_size: (380.0, 320.0),
         obs_dir: data_dir.join("obs"),
         data_dir: data_dir.clone(),
         session_file,
@@ -1294,6 +1315,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         web,
         toggle_item: Mutex::new(None),
         preview_overlay: Arc::new(AtomicBool::new(false)),
+        overlay_visible: Arc::new(AtomicBool::new(false)),
     });
 
     // --- Icône près de l'horloge ---
@@ -1333,7 +1355,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // --- Fenêtre overlay : transparente, toujours au premier plan, les clics la traversent ---
     let overlay = WebviewWindowBuilder::new(app, "overlay", WebviewUrl::App("overlay.html".into()))
         .title("RL Session Stats - Overlay")
-        .inner_size(320.0, 80.0)
+        .inner_size(380.0, 320.0)
         .position(OFFSCREEN, OFFSCREEN)
         .transparent(true)
         .decorations(false)
@@ -1400,7 +1422,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         let app = handle.clone();
         thread::spawn(move || {
             let mut was_running = false;
-            let mut was_visible = false;
             let mut run_check_counter: u32 = 0;
             let mut is_running = false;
 
@@ -1436,24 +1457,36 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                                 ctx.core.lock().unwrap().log("Rocket League d\u{e9}tect\u{e9}");
                             }
 
-                            // Attente de 2.0s pour laisser Rocket League démarrer et écrire Launch.log
-                            std::thread::sleep(Duration::from_millis(2000));
-                            let docs = h.state::<Ctx>().core.lock().unwrap().documents_dir.clone();
-                            if let Some(player) = rl_config::detect_player_from_logs(docs.as_deref()) {
-                                let final_plat = detected_platform.unwrap_or(player.platform);
-                                {
-                                    let ctx = h.state::<Ctx>();
-                                    let mut c = ctx.core.lock().unwrap();
-                                    c.switch_account_if_needed(&final_plat, &player.name, &player.id);
-                                    c.log(&format!("Profil joueur actualisé : {} ({})", player.name, final_plat));
+                            // Tentatives répétées de détection du joueur pendant le démarrage du jeu
+                            // Rocket League écrit Launch.log progressivement (command line au début, EOS/PsyNet après ~10s).
+                            let h_inner = h.clone();
+                            tauri::async_runtime::spawn(async move {
+                                for _attempt in 0..10 {
+                                    std::thread::sleep(Duration::from_millis(1500));
+                                    let docs = h_inner.state::<Ctx>().core.lock().unwrap().documents_dir.clone();
+                                    if let Some(player) = rl_config::detect_player_from_logs(docs.as_deref()) {
+                                        let final_plat = detected_platform.clone().unwrap_or(player.platform);
+                                        let switched = {
+                                            let ctx = h_inner.state::<Ctx>();
+                                            let mut c = ctx.core.lock().unwrap();
+                                            let cur_user = c.store.data.player.custom_name.clone();
+                                            let s = c.switch_account_if_needed(&final_plat, &player.name, &player.id);
+                                            if s || cur_user != player.name {
+                                                c.log(&format!("Profil joueur actualisé : {} ({})", player.name, final_plat));
+                                            }
+                                            s
+                                        };
+                                        publish(&h_inner);
+                                        let auto_sync = h_inner.state::<Ctx>().core.lock().unwrap().store.data.player.auto_sync_mmr;
+                                        if auto_sync {
+                                            std::thread::sleep(Duration::from_millis(1000));
+                                            let _ = perform_tracker_sync(h_inner.clone()).await;
+                                        }
+                                        let _ = switched;
+                                        break;
+                                    }
                                 }
-                                publish(&h);
-                            }
-                            let auto_sync = h.state::<Ctx>().core.lock().unwrap().store.data.player.auto_sync_mmr;
-                            if auto_sync {
-                                std::thread::sleep(Duration::from_millis(1500));
-                                let _ = perform_tracker_sync(h).await;
-                            }
+                            });
                         });
                     } else if !running_now && was_running {
                         was_running = false;
@@ -1482,16 +1515,15 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                     rl_config::is_rocket_league_focused()
                 };
 
+                let is_currently_visible = app.state::<Ctx>().overlay_visible.load(Ordering::Relaxed);
                 if should_be_visible {
-                    if !was_visible {
-                        was_visible = true;
+                    if !is_currently_visible {
                         render_overlay_on_screen(&app);
                     } else if let Some(win) = app.get_webview_window("overlay") {
                         let _ = win.set_always_on_top(true);
                     }
                 } else {
-                    if was_visible {
-                        was_visible = false;
+                    if is_currently_visible {
                         hide_overlay(&app);
                     }
                 }

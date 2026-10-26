@@ -163,9 +163,11 @@ pub fn find_launch_log_paths(documents_dir: Option<&Path>) -> Vec<PathBuf> {
         candidates.push(Path::new(&d).join("TAGame").join("Logs").join("Launch.log"));
     }
 
+    let mut seen = std::collections::HashSet::new();
     let mut existing: Vec<PathBuf> = candidates
         .into_iter()
         .filter(|p| p.exists())
+        .filter(|p| seen.insert(p.to_string_lossy().to_lowercase()))
         .collect();
 
     existing.sort_by(|a, b| {
@@ -174,7 +176,30 @@ pub fn find_launch_log_paths(documents_dir: Option<&Path>) -> Vec<PathBuf> {
         t_b.cmp(&t_a)
     });
 
-    existing
+    // Élimine les fichiers fantômes / obsolètes (> 48 heures) si un fichier plus récent existe
+    let now = std::time::SystemTime::now();
+    let max_stale = std::time::Duration::from_secs(48 * 3600);
+    let fresh: Vec<PathBuf> = existing
+        .iter()
+        .filter(|p| {
+            fs::metadata(p)
+                .and_then(|m| m.modified())
+                .map(|t| now.duration_since(t).map(|d| d < max_stale).unwrap_or(true))
+                .unwrap_or(false)
+        })
+        .cloned()
+        .collect();
+
+    if !fresh.is_empty() {
+        // Si Rocket League est en cours d'exécution, seul le fichier actif le plus récent compte
+        if is_rocket_league_running() {
+            vec![fresh[0].clone()]
+        } else {
+            fresh
+        }
+    } else {
+        existing.into_iter().take(1).collect()
+    }
 }
 
 pub fn read_file_shared(path: &Path) -> Option<String> {
@@ -214,10 +239,10 @@ pub fn parse_player_from_log_content(content: &str) -> Option<DetectedPlayer> {
         if line.contains("HandleLocalPlayerLoginStatusChanged") {
             if let Some(name_pos) = line.find("PlayerName=") {
                 let rest = &line[name_pos + "PlayerName=".len()..];
-                let name = rest.split_whitespace().next().unwrap_or("").trim();
+                let name = rest.split_whitespace().next().unwrap_or("").trim().trim_matches('"').trim_matches('\'');
                 if let Some(id_pos) = line.find("PlayerID=") {
                     let id_rest = &line[id_pos + "PlayerID=".len()..];
-                    let id_token = id_rest.split_whitespace().next().unwrap_or("").trim();
+                    let id_token = id_rest.split_whitespace().next().unwrap_or("").trim().trim_matches('"').trim_matches('\'');
                     let parts: Vec<&str> = id_token.split('|').collect();
                     let raw_platform = parts.get(0).unwrap_or(&"epic").to_lowercase();
                     let platform = if raw_platform.contains("steam") { "steam" } else { "epic" }.to_string();
@@ -236,7 +261,7 @@ pub fn parse_player_from_log_content(content: &str) -> Option<DetectedPlayer> {
         if detected_cmd_user.is_none() && line.contains("-epicusername=") {
             if let Some(pos) = line.find("-epicusername=") {
                 let rest = &line[pos + "-epicusername=".len()..];
-                let user = rest.split_whitespace().next().unwrap_or("").trim();
+                let user = rest.split_whitespace().next().unwrap_or("").trim().trim_matches('"').trim_matches('\'');
                 if !user.is_empty() {
                     detected_cmd_user = Some(user.to_string());
                 }
@@ -245,7 +270,7 @@ pub fn parse_player_from_log_content(content: &str) -> Option<DetectedPlayer> {
         if detected_cmd_id.is_none() && line.contains("-epicuserid=") {
             if let Some(pos) = line.find("-epicuserid=") {
                 let rest = &line[pos + "-epicuserid=".len()..];
-                let id = rest.split_whitespace().next().unwrap_or("").trim();
+                let id = rest.split_whitespace().next().unwrap_or("").trim().trim_matches('"').trim_matches('\'');
                 if !id.is_empty() {
                     detected_cmd_id = Some(id.to_string());
                 }
@@ -265,7 +290,8 @@ pub fn parse_player_from_log_content(content: &str) -> Option<DetectedPlayer> {
 }
 
 pub fn detect_player_from_logs(documents_dir: Option<&Path>) -> Option<DetectedPlayer> {
-    for path in find_launch_log_paths(documents_dir) {
+    let paths = find_launch_log_paths(documents_dir);
+    for path in paths {
         if let Some(content) = read_file_shared(&path) {
             if let Some(player) = parse_player_from_log_content(&content) {
                 return Some(player);

@@ -373,3 +373,14 @@ fn sanitize_account_keys() {
     assert_eq!(crate::sanitize_account_key("Steam", "Player_123"), "steam_Player_123");
     assert_eq!(crate::sanitize_account_key("", ""), "default");
 }
+
+#[test]
+fn test_live_player_detection() {
+    let paths = rl_config::find_launch_log_paths(None);
+    for p in &paths {
+        let meta = std::fs::metadata(p).and_then(|m| m.modified());
+        println!("Candidate log path: {:?}, mod: {:?}", p, meta);
+    }
+    let detected = rl_config::detect_player_from_logs(None);
+    println!("Detected player: {:?}", detected);
+}
