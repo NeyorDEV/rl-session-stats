@@ -1,5 +1,12 @@
 # RL Session Stats
 
+> **Merged project: this repository is no longer updated.**
+> RL Session Stats and [LobbyTracker](https://github.com/NeyorDEV/lobbytracker) have been merged into **[RL Tracker Suite](https://github.com/NeyorDEV/rl-tracker-suite)**, a single app with a *Session Stats* tab (everything in this project) and a *LobbyTracker* tab.
+> This repository will not receive any further updates: development continues only in [RL Tracker Suite](https://github.com/NeyorDEV/rl-tracker-suite).
+>
+> - New project: [NeyorDEV/rl-tracker-suite](https://github.com/NeyorDEV/rl-tracker-suite)
+> - Original projects: [NeyorDEV/rl-session-stats](https://github.com/NeyorDEV/rl-session-stats) (this repository) and [NeyorDEV/lobbytracker](https://github.com/NeyorDEV/lobbytracker)
+
 <p align="center">
   <img src="ui/icon.png" width="96" height="96" alt="RL Session Stats Logo">
 </p>
